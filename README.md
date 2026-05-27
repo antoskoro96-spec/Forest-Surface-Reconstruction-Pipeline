@@ -33,7 +33,7 @@ Takes a segmented forest point cloud as input and runs a two-stage pipeline:
 The outputs are merged back into a complete forest and packaged as a ZIP.
 
 
-<img width="1072" height="441" alt="i1" src="https://github.com/user-attachments/assets/d1fcd23d-155e-4ea9-b1cd-bbc8f1180838" />
+<img width="972" height="441" alt="i1" src="https://github.com/user-attachments/assets/d1fcd23d-155e-4ea9-b1cd-bbc8f1180838" />
 
 
 ### Single Tree Pipeline (`single_tree.py` / `single_tree_reconstruction.ipynb`)
