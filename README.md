@@ -1,5 +1,8 @@
-# Forest-Surface-Reconstruction-Pipeline
+# Forest-Surface-Reconstruction-Pipeline 
+
 Surface reconstruction from forest point clouds
+
+# Forest & Single Tree Reconstruction Pipeline
 
 A combined pipeline for forest point cloud segmentation and individual tree reconstruction, built on top of [PointTree](https://github.com/ai4trees/pointtree) and [AdTree](https://github.com/tudelft3d/AdTree). [TreeNet3D](https://github.com/ao216/TreeNet3D) is used as a source of ground truth single-tree data for validation and testing of the AdTree reconstruction.
 
@@ -11,11 +14,11 @@ This project builds directly on the following open-source works. Please cite and
 
 | Project | Authors | Repository |
 |---|---|---|
-| **AdTree** | Liangliang Nan, Kasper Wolff, Roderik Lindenbergh, Bas Boom, Marc Geertsema, Przemyslaw Wojtyla | [tudelft3d/AdTree](https://github.com/tudelft3d/AdTree) |
+| **AdTree** | Shenglan Du, Roderik Lindenbergh, Hugo Ledoux, Jantien Stoter, Liangliang Nan | [tudelft3d/AdTree](https://github.com/tudelft3d/AdTree) |
 | **PointTree** | Jan Windheuser et al. | [ai4trees/pointtree](https://github.com/ai4trees/pointtree) |
 | **TreeNet3D** | ao216 | [ao216/TreeNet3D](https://github.com/ao216/TreeNet3D) |
 
-> AdTree is described in: *Liangliang Nan and Peter Wonka. AdTree: Accurate, Detailed, and Automatic Modeling of Laser-Scanned Trees. Remote Sensing, 2019.*
+> AdTree is described in: *Shenglan Du, Roderik Lindenbergh, Hugo Ledoux, Jantien Stoter, and Liangliang Nan. AdTree: Accurate, Detailed, and Automatic Modelling of Laser-Scanned Trees. Remote Sensing, 11(18), 2074, 2019. https://doi.org/10.3390/rs11182074*
 
 ---
 
@@ -113,16 +116,18 @@ vec3 dirLeaf = (randPerp * 0.6f + branchDir * 0.4f).normalize();
 
 ---
 
-### Patch D — Least-Squares circle fit for trunk radius
+### Patch D — Improved initial trunk radius estimate
 
-**Before:** The trunk radius was estimated from the 2D bounding box of trunk points projected onto the XY plane — a simple but inaccurate method sensitive to outliers and non-circular cross-sections.
+**Context from the paper:** AdTree uses a Levenberg-Marquardt non-linear least-squares cylinder fit (Section 3.3, Equations 5–7) to accurately determine the trunk radius. This 3D cylinder fit is the core of the original algorithm and is left unchanged. However, this fit requires a good initial estimate to converge correctly. In the original code, this initial estimate comes from the 2D bounding box of trunk points.
+
+**Before:** The initial trunk radius estimate used the 2D bounding box of trunk points projected onto the XY plane — sensitive to outliers and elongated cross-sections.
 ```cpp
 TrunkRadius_ = std::max((maxX - minX), (maxY - minY)) / 2.0;
 ```
 
-**After:** A Gauss-Newton least-squares circle fit is applied to all trunk points, using the bounding box result as the initial estimate. The fit runs for up to 100 iterations and converges to an optimal circle center and radius. Only applied when enough trunk points are available (≥ 1000).
+**After:** A 2D Gauss-Newton least-squares circle fit replaces the bounding box as the initial estimate. It runs for up to 100 iterations using Cramer's rule to solve the 3x3 normal equations, and converges to a better starting value for the subsequent 3D cylinder fit. Applied only when ≥ 1000 trunk points are available.
 
-**Why:** The bounding box overestimates the radius when trunk cross-sections are slightly elongated or have outlier points. The circle fit produces a significantly more accurate trunk radius, which propagates through the entire branch radius calculation.
+**Why:** The bounding box overestimates the radius when trunk cross-sections are slightly elongated or contain outliers. A better starting estimate helps the 3D Levenberg-Marquardt cylinder fit (which remains unchanged) converge to a more accurate result, which then propagates to all branch radii via the allometric scaling rule (Equation 8 in the paper).
 
 ---
 
