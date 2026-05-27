@@ -23,7 +23,7 @@ This project builds directly on the following open-source works. Please cite and
 
 ## What This Project Does
 
-### Forest Pipeline (`pipeline.py` / `Forest_Reconstruction_Pipeline.ipynb`)
+### Forest Pipeline (`pipeline.py` / `forest_reconstruction_pipeline.ipynb`)
 
 Takes a segmented forest point cloud as input and runs a two-stage pipeline:
 
@@ -175,7 +175,7 @@ project/
     output/                   <- created automatically
     pipeline.py               <- forest pipeline script
     single_tree.py            <- single tree script
-    Forest_Reconstruction_Pipeline.ipynb
+    forest_reconstruction_pipeline.ipynb
     single_tree_reconstruction.ipynb
     README.md
 ```
