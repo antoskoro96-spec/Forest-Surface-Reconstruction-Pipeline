@@ -33,16 +33,8 @@ Takes a segmented forest point cloud as input and runs a two-stage pipeline:
 The outputs are merged back into a complete forest and packaged as a ZIP.
 
 ```
-Forest .laz / .las / .ply
-        |
-        v
-   [ PointTree ]  →  individual tree clouds + assembly JSON + summary CSV
-        |
-        v
-   [ AdTree x N ]  →  per-tree: skeleton, branches.obj, leaves.obj
-        |
-        v
-   [ Merge ]  →  forest_branches.obj, forest_leaves.obj, forest_pointcloud.ply
+<img width="1122" height="1402" alt="im1" src="https://github.com/user-attachments/assets/1ae16a3b-62ee-43a6-a975-6fe8833666ce" />
+
 ```
 
 ### Single Tree Pipeline (`single_tree.py` / `single_tree_reconstruction.ipynb`)
