@@ -2,6 +2,8 @@
 
 Surface reconstruction from forest point clouds
 
+# Forest & Single Tree Reconstruction Pipeline
+
 A combined pipeline for forest point cloud segmentation and individual tree reconstruction, built on top of [PointTree](https://github.com/ai4trees/pointtree) and [AdTree](https://github.com/tudelft3d/AdTree). [TreeNet3D](https://github.com/ao216/TreeNet3D) is used as a source of ground truth single-tree data for validation and testing of the AdTree reconstruction.
 
 ---
@@ -14,7 +16,8 @@ This project builds directly on the following open-source works. Please cite and
 |---|---|---|
 | **AdTree** | Shenglan Du, Roderik Lindenbergh, Hugo Ledoux, Jantien Stoter, Liangliang Nan | [tudelft3d/AdTree](https://github.com/tudelft3d/AdTree) |
 | **PointTree** | Jan Windheuser et al. | [ai4trees/pointtree](https://github.com/ai4trees/pointtree) |
-| **TreeNet3D** | ao216 | [ao216/TreeNet3D](https://github.com/ao216/TreeNet3D) |
+
+> **Note on validation data:** Individual tree point clouds for testing were obtained from the [TreeNet3D dataset](https://github.com/ao216/TreeNet3D) (Tang et al., 2024). TreeNet3D data requires a signed agreement with the authors and cannot be redistributed. Contact shengjuntang@szu.edu.cn with your institutional email to request access.
 
 > AdTree is described in: *Shenglan Du, Roderik Lindenbergh, Hugo Ledoux, Jantien Stoter, and Liangliang Nan. AdTree: Accurate, Detailed, and Automatic Modelling of Laser-Scanned Trees. Remote Sensing, 11(18), 2074, 2019. https://doi.org/10.3390/rs11182074*
 
@@ -46,7 +49,7 @@ Forest .laz / .las / .ply
 
 ### Single Tree Pipeline (`single_tree.py` / `single_tree_reconstruction.ipynb`)
 
-Takes a single-tree point cloud as input and runs AdTree directly. Designed for testing and validation — particularly with individual tree data from **TreeNet3D**, which provides high-quality ground truth single-tree scans. This makes it straightforward to compare AdTree reconstruction quality against known reference data.
+Takes a single-tree point cloud as input and runs AdTree directly. Designed for testing and validation of individual trees. Accepts any `.las`, `.laz`, `.ply`, `.txt` or `.csv` file.
 
 ---
 
@@ -430,7 +433,8 @@ output/
 
 This project is released for research and educational use.
 
-The underlying tools retain their original licenses:
-- **AdTree** — see [AdTree license](https://github.com/tudelft3d/AdTree/blob/master/LICENSE)
-- **PointTree** — see [PointTree license](https://github.com/ai4trees/pointtree/blob/main/LICENSE)
-- **TreeNet3D** — see [TreeNet3D license](https://github.com/ao216/TreeNet3D/blob/main/LICENSE)
+AdTree is licensed under **GPL v3**. Since this project builds on AdTree, the same license applies here. This means: you may freely use, modify and share this code, but any published derivative work must also be GPL v3 and include the source code.
+
+PointTree retains its own license — see [PointTree license](https://github.com/ai4trees/pointtree/blob/main/LICENSE).
+
+**TreeNet3D data is not included in this repository.** The dataset requires a signed agreement with the authors and may not be redistributed. See [TreeNet3D](https://github.com/ao216/TreeNet3D) for access instructions.
