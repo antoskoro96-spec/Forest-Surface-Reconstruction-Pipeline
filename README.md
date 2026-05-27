@@ -2,8 +2,6 @@
 
 Surface reconstruction from forest point clouds
 
-# Forest & Single Tree Reconstruction Pipeline
-
 A combined pipeline for forest point cloud segmentation and individual tree reconstruction, built on top of [PointTree](https://github.com/ai4trees/pointtree) and [AdTree](https://github.com/tudelft3d/AdTree). [TreeNet3D](https://github.com/ao216/TreeNet3D) is used as a source of ground truth single-tree data for validation and testing of the AdTree reconstruction.
 
 ---
