@@ -308,7 +308,7 @@ python single_tree.py --input input/tree.laz
 
 ---
 
-### Option 4 — Linux (Ubuntu / Debian)
+### Option 4 — Linux
 
 ```bash
 # System dependencies
