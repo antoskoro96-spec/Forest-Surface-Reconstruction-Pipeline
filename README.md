@@ -170,7 +170,7 @@ compute_all_edges_radius(TrunkRadius_);
 
 ### 3. Leaf Generation
 
-| <img width="360" height="670" alt="front4d" src="https://github.com/user-attachments/assets/0b607f42-c42e-42c4-b2fa-82f46dd2c803" /> | <img width="360" height="670" alt="front4" src="https://github.com/user-attachments/assets/b296f416-4eeb-4609-bb5f-f12103b5d166" /> |
+| <img width="260" height="570" alt="front4d" src="https://github.com/user-attachments/assets/0b607f42-c42e-42c4-b2fa-82f46dd2c803" /> | <img width="260" height="570" alt="front4" src="https://github.com/user-attachments/assets/b296f416-4eeb-4609-bb5f-f12103b5d166" /> |
 | :---: | :---: |
 | Before | After |
 
