@@ -45,28 +45,36 @@ Takes a single-tree point cloud as input and runs AdTree directly. Designed for 
 
 ---
 
+Sorry — hier ist der Text direkt zum Kopieren, ohne Markdown-Codeblock:
+
 ## Changes Made to AdTree
 
-The original AdTree C++ source is modified with nine patches applied automatically before compilation. The patches are grouped and ordered to mirror the three reconstruction stages described in the paper — **skeleton extraction**, **wood-mesh reconstruction** and **leaf generation** — and are numbered consecutively (1–9) across the groups. All patches are applied automatically by the pipeline scripts.
+The original AdTree C++ source is modified with nine patches applied automatically before compilation. The patches are grouped and ordered to mirror the three reconstruction stages described in the paper — **skeleton extraction**, **wood-mesh reconstruction**, and **leaf generation** — and are numbered consecutively (1–9) across the groups. All patches are applied automatically by the pipeline scripts.
 
 > **Images:** Each patch starts with a before/after comparison. Replace the placeholder paths (`docs/images/patchN_before.png` / `docs/images/patchN_after.png`) with your own screenshots.
 
 ### 1. Skeleton Extraction
-<!-- Before/After image -->
-| <img width="490" height="580" alt="skeleton_old" src="https://github.com/user-attachments/assets/01632bac-cf79-4df5-9d94-a955315e9ad3" /> |<img width="490" height="580" alt="skeleton _new" src="https://github.com/user-attachments/assets/0f1fcb3c-4faa-4c1d-962f-7540d6c4fdd3" /> |
-| :---: | :---: |
-| Before | After |
 
-#### Patch 1 — Location-dependent skeleton simplification
+| <img width="490" height="580" alt="skeleton_old" src="https://github.com/user-attachments/assets/01632bac-cf79-4df5-9d94-a955315e9ad3" /> | <img width="490" height="580" alt="skeleton_new" src="https://github.com/user-attachments/assets/0f1fcb3c-4faa-4c1d-962f-7540d6c4fdd3" /> |
+| :---------------------------------------------------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------------------------------------------------: |
+|                                                                   Before                                                                  |                                                                   After                                                                   |
 
-**Before:** A single fixed merge threshold was used for the whole tree when simplifying the skeleton — a vertex was merged whenever the deviation was below `1.0 * r`. This simplified the trunk region too aggressively and oversimplified the main structure.
+#### Patch 1 — Adaptive skeleton simplification
+
+**Before:** A single fixed merge threshold was used for the whole tree when simplifying the skeleton. A vertex was merged whenever its deviation was below `1.0 * r`. This could simplify the trunk and main-branch regions too aggressively and remove important curvature.
+
 ```cpp
 double r = (*i_Graph)[edge(i_dVertex, parentV, *i_Graph).first].nRadius;
 if (distance >= 1.0 * r)
     return false;
 ```
 
-**After:** The merge threshold becomes location-dependent, driven by the node's position in the tree (`fraction = lengthOfSubtree(node) / lengthOfSubtree(root)`, ~1 at the trunk, ~0 at the crown tips). A smoothstep over the band `[0.05, 0.25]` relaxes merging at the trunk (threshold `≈ 0.1`, detail preserved) and keeps it aggressive toward the crown (threshold `1.0`).
+**After:** The merge threshold becomes dependent on the relative subtree length:
+
+`fraction = lengthOfSubtree(node) / lengthOfSubtree(root)`
+
+Large `fraction` values correspond to large subtrees, typically trunk and main-branch regions, while small values correspond to terminal branches. A smoothstep transition over the band `[0.05, 0.25]` reduces the merge threshold for large subtrees, making merging stricter and preserving curvature. Terminal branches keep the original, more aggressive simplification behavior.
+
 ```cpp
 double fraction = (rootSubtree > 1e-10) ? (nodeSubtree / rootSubtree) : 0.0;
 double bandLo = 0.05, bandHi = 0.25, curveStrength = 0.1;
@@ -77,122 +85,132 @@ if (distance >= mergeThreshold * r)
     return false;
 ```
 
-**Why:** The uniform simplification was too aggressive in the trunk region, oversimplifying the main stem (paper Fig. 2b). Making the decision rule position-dependent preserves trunk and main-branch detail while still simplifying the crown, as described in Section III-A of the paper.
+**Why:** The uniform simplification could oversimplify the main stem and main branches. The adaptive rule preserves curvature in structurally important regions while still removing redundant detail in terminal crown branches, as described in Section III-A of the paper.
 
 ---
 
-#### Patch 2 — Junction-aware skeleton smoothing & gap filling
+#### Patch 2 — Junction-aware skeleton smoothing and gap filling
 
-**Before:** The reconstructed centerline and radii were taken directly from the cubic interpolation of each branch path. This could produce wavy centerlines, jittery radius profiles and long straight jumps where the interpolated points were sparse.
+**Before:** The reconstructed centerline and radii were taken directly from the cubic interpolation of each branch path. This could produce wavy centerlines, jittery radius profiles, and long straight jumps where the interpolated points were sparse.
 
-**After:** Each branch path is tagged with `hardAnchors` (root, junctions and branch tips that must not move), then post-processed:
-- **Centerline smoothing** — 4 passes of windowed averaging that never crosses a hard anchor.
-- **Radius smoothing** — 8 passes plus a monotonic non-increasing constraint toward the tip.
-- **Straight-gap filling** — inserts evenly spaced points wherever the spacing between consecutive skeleton points exceeds `1.4 ×` the median spacing.
+**After:** Each branch path is tagged with `hardAnchors`, marking root points, branch junctions, and branch tips that must not be moved. The interpolated path is then post-processed:
 
-Junctions and tips stay fixed throughout, so the topology is preserved.
+* **Centerline smoothing:** 4 passes of windowed averaging that never crosses a hard anchor.
+* **Radius smoothing:** 8 smoothing passes along the path, while preserving hard anchors.
+* **Tip handling:** closed tips are temporarily protected during radius smoothing and then restored to a zero radius.
+* **Monotonic radius cleanup:** branch radii are constrained to not increase toward the tip.
+* **Straight-gap filling:** additional points are inserted where the spacing between consecutive centerline samples exceeds `1.4 ×` the typical spacing.
 
-**Why:** Smoother centerlines and radius profiles give more natural, less faceted branch cylinders, and gap filling avoids long straight cylinder segments where the interpolation was sparse — without moving the structural anchor points.
+Hard anchors remain fixed throughout this cleanup, so roots, branch junctions, and tips are preserved.
+
+**Why:** Smoother centerlines and radius profiles produce more continuous branch cylinders. Gap filling avoids long cylinder shortcuts caused by sparse interpolation, while hard anchors prevent the smoothing step from moving important topological points.
 
 ---
 
 #### Patch 3 — Lower trunk straightening
 
-**Before:** The lowest section of the main trunk followed the raw skeleton, which could wobble or lean near the base.
+**Before:** The lowest section of the main trunk followed the raw reconstructed skeleton. Near the base, this could cause visible wobbling or sideways offsets due to root, ground, or scan artifacts.
 
-**After:** On the main path only, the lowest ~5% of the trunk (by height) is straightened. An attachment point is found at `5% × TreeHeight`, a least-squares line direction is estimated from the next few points above it, and the points below are projected onto that line while keeping their original heights (no offset introduced).
+**After:** On the main path only, the lowest approximately 5% of the trunk is straightened. An attachment point is selected at `5% × TreeHeight`, a local trunk direction is estimated from the following points above it, and the points below are projected onto this line while keeping their original height values.
 
-**Why:** The base of the stem is where reconstruction artifacts are most visible. Aligning the lowest 5% to the local trunk direction estimated just above the base gives a cleaner, more vertical stem.
+**Why:** The lower trunk is visually important and often affected by reconstruction artifacts. Straightening only the lowest main-trunk section reduces base wobbling without changing the overall tree topology or branch structure.
+
+---
+
+#### Patch 4 — Initial trunk-point range increased from 2% to 10%
+
+**Before:** Only points within the lowest 2% of the tree height were used to estimate the initial trunk radius.
+
+```cpp
+double epsiony = 0.02;
+```
+
+**After:** The threshold is increased to the lowest 10% of the tree height.
+
+```cpp
+double epsiony = 0.10;
+```
+
+**Why:** The initial trunk radius is used as a scale parameter during main-branch point centralization. Using a larger lower-trunk region provides more points and can make this initial estimate more stable, especially for sparse or noisy point clouds. This radius is not necessarily the final mesh radius; the final radius is recalibrated later in Patch 6.
+
+---
+
+#### Patch 5 — Improved initial trunk radius estimate by least-squares circle fitting
+
+**Before:** The initial trunk radius was estimated from the 2D bounding box of the selected lower trunk points projected onto the XY plane.
+
+```cpp
+TrunkRadius_ = std::max((maxX - minX), (maxY - minY)) / 2.0;
+```
+
+This estimate can become too large when the selected lower region contains outliers, nearby branch points, or elongated point distributions.
+
+**After:** The bounding-box estimate is replaced by a 2D Gauss-Newton least-squares circle fit. The fit estimates a circle center and radius from the selected lower trunk points. The resulting radius is used as the initial `TrunkRadius_` for the following skeleton centralization step. If too few trunk points are available, the original bounding-box estimate remains the fallback.
+
+**Why:** The initial trunk radius controls the neighborhood size used during main-branch point centralization. A more stable initial radius can improve the extracted skeleton by reducing under- or over-centralization. The fitted circle center is only used internally for estimating the radius; the skeleton later uses the radius value, not the fitted center. The final mesh radius is recalibrated separately in Patch 6.
 
 ---
 
 ### 2. Wood-Mesh Reconstruction
 
-<!-- Before/After image -->
-|<img width="375" height="634" alt="front3d" src="https://github.com/user-attachments/assets/285692cd-15e9-4701-92d6-55658d4f75a9" /> | <img width="360" height="670" alt="front3" src="https://github.com/user-attachments/assets/985bc2e1-acee-4223-a585-2005781c76fc" /> |
-| :---: | :---: |
-| Before | After |
-
-#### Patch 4 — Trunk-point threshold raised from 2% to 10% (epsiony)
-
-
-**Before:** Only points within 2% of tree height from the lowest point were used for trunk analysis.
-
-**After:** The threshold is raised to 10%, providing more points for robust trunk radius estimation.
-
-```cpp
-// before
-double epsiony = 0.02;
-// after
-double epsiony = 0.10;
-```
-
----
-
-#### Patch 5 — Improved initial trunk radius estimate (least-squares circle fit)
-
-**Context from the paper:** AdTree uses a Levenberg-Marquardt non-linear least-squares cylinder fit (Section 3.3, Equations 5–7) to accurately determine the trunk radius. This 3D cylinder fit is the core of the original algorithm and is left unchanged. However, this fit requires a good initial estimate to converge correctly. In the original code, this initial estimate comes from the 2D bounding box of trunk points.
-
-**Before:** The initial trunk radius estimate used the 2D bounding box of trunk points projected onto the XY plane — sensitive to outliers and elongated cross-sections.
-```cpp
-TrunkRadius_ = std::max((maxX - minX), (maxY - minY)) / 2.0;
-```
-
-**After:** A 2D Gauss-Newton least-squares circle fit replaces the bounding box as the initial estimate. It runs for up to 100 iterations using Cramer's rule to solve the 3x3 normal equations, and converges to a better starting value for the subsequent 3D cylinder fit. Applied only when ≥ 1000 trunk points are available.
-
-**Why:** The bounding box overestimates the radius when trunk cross-sections are slightly elongated or contain outliers. A better starting estimate helps the 3D Levenberg-Marquardt cylinder fit (which remains unchanged) converge to a more accurate result, which then propagates to all branch radii via the allometric scaling rule (Equation 8 in the paper).
-
----
+| <img width="375" height="634" alt="front3d" src="https://github.com/user-attachments/assets/285692cd-15e9-4701-92d6-55658d4f75a9" /> | <img width="360" height="670" alt="front3" src="https://github.com/user-attachments/assets/985bc2e1-acee-4223-a585-2005781c76fc" /> |
+| :----------------------------------------------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------------------------------------------: |
+|                                                                Before                                                                |                                                                After                                                                |
 
 #### Patch 6 — Self-calibrating final trunk radius
 
-**Before:** The trunk radius produced by the earlier estimate/fit was passed directly to `compute_all_edges_radius(TrunkRadius_)`, which propagates it to every branch.
+**Before:** The current `TrunkRadius_` was passed directly to `compute_all_edges_radius(TrunkRadius_)`, which propagates the trunk radius to the remaining branches. If this value was too large, the entire wood mesh became too thick.
 
-**After:** Just before that propagation, `TrunkRadius_` is recomputed directly from the point cloud: skeleton points within the lowest 2% of tree height are collected, their XY centroid is taken, and `TrunkRadius_` is set to the **median** radial distance of those points from the centroid (only when ≥ 10 points are available).
+```cpp
+compute_all_edges_radius(TrunkRadius_);
+```
 
-**Why:** This anchors the final trunk radius to the actual point distribution at the base, reducing over/under-estimation right before the radius is scaled up the rest of the tree. *(Note: this median override runs after Patch 5 — see the note in the pull-request/README feedback about their interplay.)*
+**After:** Just before branch-radius propagation, `TrunkRadius_` is recalibrated from the reconstructed tree structure. The code iterates over all edges of the simplified skeleton, collects the original input points assigned to these edges through `vecPoints`, and keeps only those located in the lowest 2% of the tree height. These filtered lower points are projected onto the XY plane. Their centroid is computed, and the final trunk radius is set to the median radial distance from the centroid.
+
+**Why:** This separates the radius used for early skeleton centralization from the radius used for final wood-mesh thickness. Patch 5 provides an initial radius for skeleton extraction, while Patch 6 recalibrates the final radius directly before it is propagated to the branch radii. Using points assigned to the simplified skeleton provides a filtered point set and makes the final radius less sensitive to raw point-cloud outliers.
 
 ---
 
 ### 3. Leaf Generation
 
-<!-- Before/After image -->
 | <img width="402" height="646" alt="front4d" src="https://github.com/user-attachments/assets/0b607f42-c42e-42c4-b2fa-82f46dd2c803" /> | <img width="360" height="670" alt="front4" src="https://github.com/user-attachments/assets/b296f416-4eeb-4609-bb5f-f12103b5d166" /> |
-| :---: | :---: |
-| Before | After |
-
+| :----------------------------------------------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------------------------------------------: |
+|                                                                Before                                                                |                                                                After                                                                |
 
 #### Patch 7 — Leaf density and size reduction
 
+**Before:** Each terminal vertex could generate up to 10 leaves. The leaf size and scatter radius were also relatively large, producing very dense canopies that often obscured the reconstructed wood mesh.
 
-**Before:** Each end vertex generated up to 10 leaves with a large leaf radius and size.
 ```cpp
 int density = ceil(random_float() * 10);
 generate_leaves(currentLeafVertex, 0.05);
 double radius = 0.2 / log((float)num_edges(simplified_skeleton_));
 ```
 
-**After:** Density reduced to at most 1 leaf per end vertex, size and radius scaled down significantly.
+**After:** Leaf density is reduced to approximately one leaf per terminal vertex, while leaf size and scatter radius are also reduced.
+
 ```cpp
 int density = ceil(random_float() * 1);
 generate_leaves(currentLeafVertex, 0.02);
 double radius = 0.04 / log((float)num_edges(simplified_skeleton_));
 ```
 
-**Why:** The original settings produced extremely dense, oversized leaf meshes that were visually unrealistic and very large in file size.
+**Why:** The original settings produced oversized and overly dense leaf meshes. Reducing density, size, and scatter radius makes the leaf mesh lighter, less visually cluttered, and allows the reconstructed wood structure to remain visible.
 
 ---
 
 #### Patch 8 — Leaf base attached to branch tip
 
-**Before:** Leaf position was randomly placed along the direction from the branch tip toward its parent, effectively scattering leaves away from the actual branch endpoint.
+**Before:** Leaf positions were scattered around a point located along the direction from the branch tip toward its parent. Leaf directions were chosen randomly, so leaves could float away from the branch or point in unnatural directions.
+
 ```cpp
 vec3 pEnd = pCurrent - (random_float() / 2.0) * ((pCurrent - pParent).normalize());
 vec3 dirLeaf = random_direction();
 vec3 pLeaf = pEnd + dirLeaf * random_float() * radius;
 ```
 
-**After:** The leaf base is placed directly at the branch tip with a small offset along the branch direction. The leaf grows outward perpendicular to the branch, blended slightly with the branch direction for a natural draping effect.
+**After:** The leaf base is placed close to the terminal branch tip with only a small offset along the branch direction. The leaf direction is generated from a perpendicular component blended with the branch direction, creating an outward and slightly forward orientation.
+
 ```cpp
 vec3 branchDir = (pCurrent - pParent).normalize();
 double offset = random_float() * radius * 0.5;
@@ -200,15 +218,17 @@ vec3 pLeaf = pCurrent - branchDir * offset;
 vec3 dirLeaf = (randPerp * 0.6f + branchDir * 0.4f).normalize();
 ```
 
-**Why:** Leaves were floating away from branches instead of growing from them. This fix anchors the leaf base to the branch endpoint where it belongs.
+**Why:** Leaves should visually grow from branch tips rather than float around them. This patch anchors the leaf base closer to the terminal branch and gives the leaf a more consistent orientation relative to the branch direction.
+
+**Implementation note:** The perpendicular random direction should be normalized safely. If the random vector is nearly parallel to the branch direction, a fallback perpendicular vector should be used before normalization.
 
 ---
 
 #### Patch 9 — Elliptic leaf shape
 
-**Before:** Each leaf was a flat quad (two triangles), producing rectangular leaves with no shape variation.
+**Before:** Each leaf was represented as a flat rectangular quad made of two triangles.
 
-**After:** Each leaf is constructed as an elliptic strip with 6 segments and a sine-profile width function, producing a natural tapered leaf shape.
+**After:** Each leaf is constructed as a segmented elliptic strip with 6 segments and a sine-based width profile. The width is small at the base and tip and wider near the middle.
 
 ```cpp
 const int nSegs = 6;
@@ -219,7 +239,8 @@ for (int s = 0; s <= nSegs; ++s) {
 }
 ```
 
-**Why:** Flat rectangular quads look unnatural. The elliptic profile gives leaves a realistic pointed tip and wider mid-section.
+**Why:** Rectangular leaf quads look artificial. The segmented elliptic profile creates a more natural leaf shape with a tapered base, wider middle section, and pointed tip.
+
 
 ---
 
