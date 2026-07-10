@@ -52,9 +52,9 @@ The original AdTree C++ source is modified with nine patches applied automatical
 
 ### 1. Skeleton Extraction
 
-| <img width="490" height="580" alt="skeleton_old" src="https://github.com/user-attachments/assets/01632bac-cf79-4df5-9d94-a955315e9ad3" /> | <img width="490" height="580" alt="skeleton_new" src="https://github.com/user-attachments/assets/0f1fcb3c-4faa-4c1d-962f-7540d6c4fdd3" /> |
-| :---------------------------------------------------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------------------------------------------------: |
-|                                                                   Before                                                                  |                                                                   After                                                                   |
+| Before | After |
+| :---: | :---: |
+| <img src="https://github.com/user-attachments/assets/01632bac-cf79-4df5-9d94-a955315e9ad3" alt="skeleton_old" width="490"> | <img src="https://github.com/user-attachments/assets/0f1fcb3c-4faa-4c1d-962f-7540d6c4fdd3" alt="skeleton_new" width="490"> |
 
 #### Patch 1 — Initial trunk-point range increased from 2% to 10%
 
