@@ -49,7 +49,6 @@ Takes a single-tree point cloud as input and runs AdTree directly. Designed for 
 
 The original AdTree C++ source is modified with nine patches applied automatically before compilation. The patches are grouped and ordered to mirror the three reconstruction stages described in the paper — **skeleton extraction**, **wood-mesh reconstruction**, and **leaf generation** — and are numbered consecutively (1–9) across the groups. All patches are applied automatically by the pipeline scripts.
 
-> **Images:** Each patch group starts with a before/after comparison. Replace the placeholder paths (`docs/images/patchN_before.png` / `docs/images/patchN_after.png`) with your own screenshots.
 
 ### 1. Skeleton Extraction
 
