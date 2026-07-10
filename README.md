@@ -150,7 +150,7 @@ Hard anchors remain fixed throughout this cleanup, so roots, branch junctions, a
 
 ### 2. Wood-Mesh Reconstruction
 
-| <img width="360" height="670" alt="front3d" src="https://github.com/user-attachments/assets/285692cd-15e9-4701-92d6-55658d4f75a9" /> | <img width="360" height="670" alt="front3" src="https://github.com/user-attachments/assets/985bc2e1-acee-4223-a585-2005781c76fc" /> |
+| <img width="260" height="570" alt="front3d" src="https://github.com/user-attachments/assets/285692cd-15e9-4701-92d6-55658d4f75a9" /> | <img width="260" height="570" alt="front3" src="https://github.com/user-attachments/assets/985bc2e1-acee-4223-a585-2005781c76fc" /> |
 | :---: | :---: |
 | Before | After |
 
