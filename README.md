@@ -154,7 +154,7 @@ Hard anchors remain fixed throughout this cleanup, so roots, branch junctions, a
 | :---: | :---: |
 | Before | After |
 
-#### Patch 6 — Self-calibrating final trunk radius
+#### Patch 6 — Final trunk radius calibration
 
 **Before:** The current `TrunkRadius_` was passed directly to `compute_all_edges_radius(TrunkRadius_)`, which propagates the trunk radius to the remaining branches. If this value was too large, the entire wood mesh became too thick.
 
