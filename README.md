@@ -45,13 +45,11 @@ Takes a single-tree point cloud as input and runs AdTree directly. Designed for 
 
 ---
 
-Sorry — hier ist der Text direkt zum Kopieren, ohne Markdown-Codeblock:
-
 ## Changes Made to AdTree
 
 The original AdTree C++ source is modified with nine patches applied automatically before compilation. The patches are grouped and ordered to mirror the three reconstruction stages described in the paper — **skeleton extraction**, **wood-mesh reconstruction**, and **leaf generation** — and are numbered consecutively (1–9) across the groups. All patches are applied automatically by the pipeline scripts.
 
-> **Images:** Each patch starts with a before/after comparison. Replace the placeholder paths (`docs/images/patchN_before.png` / `docs/images/patchN_after.png`) with your own screenshots.
+> **Images:** Each patch group starts with a before/after comparison. Replace the placeholder paths (`docs/images/patchN_before.png` / `docs/images/patchN_after.png`) with your own screenshots.
 
 ### 1. Skeleton Extraction
 
@@ -59,7 +57,41 @@ The original AdTree C++ source is modified with nine patches applied automatical
 | :---------------------------------------------------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------------------------------------------------: |
 |                                                                   Before                                                                  |                                                                   After                                                                   |
 
-#### Patch 1 — Adaptive skeleton simplification
+#### Patch 1 — Initial trunk-point range increased from 2% to 10%
+
+**Before:** Only points within the lowest 2% of the tree height were used to estimate the initial trunk radius.
+
+```cpp
+double epsiony = 0.02;
+```
+
+**After:** The threshold is increased to the lowest 10% of the tree height.
+
+```cpp
+double epsiony = 0.10;
+```
+
+**Why:** The initial trunk radius is used as a scale parameter during main-branch point centralization. Using a larger lower-trunk region provides more points and can make this initial estimate more stable, especially for sparse or noisy point clouds. This radius is not necessarily the final mesh radius; the final radius is recalibrated later in Patch 6.
+
+---
+
+#### Patch 2 — Improved initial trunk radius estimate by least-squares circle fitting
+
+**Before:** The initial trunk radius was estimated from the 2D bounding box of the selected lower trunk points projected onto the XY plane.
+
+```cpp
+TrunkRadius_ = std::max((maxX - minX), (maxY - minY)) / 2.0;
+```
+
+This estimate can become too large when the selected lower region contains outliers, nearby branch points, or elongated point distributions.
+
+**After:** The bounding-box estimate is replaced by a 2D Gauss-Newton least-squares circle fit. The fit estimates a circle center and radius from the selected lower trunk points. The resulting radius is used as the initial `TrunkRadius_` for the following skeleton centralization step. If too few trunk points are available, the original bounding-box estimate remains the fallback.
+
+**Why:** The initial trunk radius controls the neighborhood size used during main-branch point centralization. A more stable initial radius can improve the extracted skeleton by reducing under- or over-centralization. The fitted circle center is only used internally for estimating the radius; the skeleton later uses the radius value, not the fitted center. The final mesh radius is recalibrated separately in Patch 6.
+
+---
+
+#### Patch 3 — Adaptive skeleton simplification
 
 **Before:** A single fixed merge threshold was used for the whole tree when simplifying the skeleton. A vertex was merged whenever its deviation was below `1.0 * r`. This could simplify the trunk and main-branch regions too aggressively and remove important curvature.
 
@@ -89,7 +121,7 @@ if (distance >= mergeThreshold * r)
 
 ---
 
-#### Patch 2 — Junction-aware skeleton smoothing and gap filling
+#### Patch 4 — Junction-aware skeleton smoothing and gap filling
 
 **Before:** The reconstructed centerline and radii were taken directly from the cubic interpolation of each branch path. This could produce wavy centerlines, jittery radius profiles, and long straight jumps where the interpolated points were sparse.
 
@@ -107,47 +139,13 @@ Hard anchors remain fixed throughout this cleanup, so roots, branch junctions, a
 
 ---
 
-#### Patch 3 — Lower trunk straightening
+#### Patch 5 — Lower trunk straightening
 
 **Before:** The lowest section of the main trunk followed the raw reconstructed skeleton. Near the base, this could cause visible wobbling or sideways offsets due to root, ground, or scan artifacts.
 
 **After:** On the main path only, the lowest approximately 5% of the trunk is straightened. An attachment point is selected at `5% × TreeHeight`, a local trunk direction is estimated from the following points above it, and the points below are projected onto this line while keeping their original height values.
 
 **Why:** The lower trunk is visually important and often affected by reconstruction artifacts. Straightening only the lowest main-trunk section reduces base wobbling without changing the overall tree topology or branch structure.
-
----
-
-#### Patch 4 — Initial trunk-point range increased from 2% to 10%
-
-**Before:** Only points within the lowest 2% of the tree height were used to estimate the initial trunk radius.
-
-```cpp
-double epsiony = 0.02;
-```
-
-**After:** The threshold is increased to the lowest 10% of the tree height.
-
-```cpp
-double epsiony = 0.10;
-```
-
-**Why:** The initial trunk radius is used as a scale parameter during main-branch point centralization. Using a larger lower-trunk region provides more points and can make this initial estimate more stable, especially for sparse or noisy point clouds. This radius is not necessarily the final mesh radius; the final radius is recalibrated later in Patch 6.
-
----
-
-#### Patch 5 — Improved initial trunk radius estimate by least-squares circle fitting
-
-**Before:** The initial trunk radius was estimated from the 2D bounding box of the selected lower trunk points projected onto the XY plane.
-
-```cpp
-TrunkRadius_ = std::max((maxX - minX), (maxY - minY)) / 2.0;
-```
-
-This estimate can become too large when the selected lower region contains outliers, nearby branch points, or elongated point distributions.
-
-**After:** The bounding-box estimate is replaced by a 2D Gauss-Newton least-squares circle fit. The fit estimates a circle center and radius from the selected lower trunk points. The resulting radius is used as the initial `TrunkRadius_` for the following skeleton centralization step. If too few trunk points are available, the original bounding-box estimate remains the fallback.
-
-**Why:** The initial trunk radius controls the neighborhood size used during main-branch point centralization. A more stable initial radius can improve the extracted skeleton by reducing under- or over-centralization. The fitted circle center is only used internally for estimating the radius; the skeleton later uses the radius value, not the fitted center. The final mesh radius is recalibrated separately in Patch 6.
 
 ---
 
@@ -167,7 +165,7 @@ compute_all_edges_radius(TrunkRadius_);
 
 **After:** Just before branch-radius propagation, `TrunkRadius_` is recalibrated from the reconstructed tree structure. The code iterates over all edges of the simplified skeleton, collects the original input points assigned to these edges through `vecPoints`, and keeps only those located in the lowest 2% of the tree height. These filtered lower points are projected onto the XY plane. Their centroid is computed, and the final trunk radius is set to the median radial distance from the centroid.
 
-**Why:** This separates the radius used for early skeleton centralization from the radius used for final wood-mesh thickness. Patch 5 provides an initial radius for skeleton extraction, while Patch 6 recalibrates the final radius directly before it is propagated to the branch radii. Using points assigned to the simplified skeleton provides a filtered point set and makes the final radius less sensitive to raw point-cloud outliers.
+**Why:** This separates the radius used for early skeleton centralization from the radius used for final wood-mesh thickness. Patch 2 provides an initial radius for skeleton extraction, while Patch 6 recalibrates the final radius directly before it is propagated to the branch radii. Using points assigned to the simplified skeleton provides a filtered point set and makes the final radius less sensitive to raw point-cloud outliers.
 
 ---
 
@@ -240,7 +238,6 @@ for (int s = 0; s <= nSegs; ++s) {
 ```
 
 **Why:** Rectangular leaf quads look artificial. The segmented elliptic profile creates a more natural leaf shape with a tapered base, wider middle section, and pointed tip.
-
 
 ---
 
