@@ -52,15 +52,12 @@ The original AdTree C++ source is modified with nine patches applied automatical
 > **Images:** Each patch starts with a before/after comparison. Replace the placeholder paths (`docs/images/patchN_before.png` / `docs/images/patchN_after.png`) with your own screenshots.
 
 ### 1. Skeleton Extraction
-
-#### Patch 1 — Location-dependent skeleton simplification
-
 <!-- Before/After image -->
-
-
 | <img width="490" height="580" alt="skeleton_old" src="https://github.com/user-attachments/assets/01632bac-cf79-4df5-9d94-a955315e9ad3" /> |<img width="490" height="580" alt="skeleton _new" src="https://github.com/user-attachments/assets/0f1fcb3c-4faa-4c1d-962f-7540d6c4fdd3" /> |
 | :---: | :---: |
 | Before | After |
+
+#### Patch 1 — Location-dependent skeleton simplification
 
 **Before:** A single fixed merge threshold was used for the whole tree when simplifying the skeleton — a vertex was merged whenever the deviation was below `1.0 * r`. This simplified the trunk region too aggressively and oversimplified the main structure.
 ```cpp
@@ -86,11 +83,6 @@ if (distance >= mergeThreshold * r)
 
 #### Patch 2 — Junction-aware skeleton smoothing & gap filling
 
-<!-- Before/After image -->
-| Before | After |
-| :---: | :---: |
-| ![Patch 2 – before](docs/images/patch2_before.png) | ![Patch 2 – after](docs/images/patch2_after.png) |
-
 **Before:** The reconstructed centerline and radii were taken directly from the cubic interpolation of each branch path. This could produce wavy centerlines, jittery radius profiles and long straight jumps where the interpolated points were sparse.
 
 **After:** Each branch path is tagged with `hardAnchors` (root, junctions and branch tips that must not move), then post-processed:
@@ -106,11 +98,6 @@ Junctions and tips stay fixed throughout, so the topology is preserved.
 
 #### Patch 3 — Lower trunk straightening
 
-<!-- Before/After image -->
-| Before | After |
-| :---: | :---: |
-| ![Patch 3 – before](docs/images/patch3_before.png) | ![Patch 3 – after](docs/images/patch3_after.png) |
-
 **Before:** The lowest section of the main trunk followed the raw skeleton, which could wobble or lean near the base.
 
 **After:** On the main path only, the lowest ~5% of the trunk (by height) is straightened. An attachment point is found at `5% × TreeHeight`, a least-squares line direction is estimated from the next few points above it, and the points below are projected onto that line while keeping their original heights (no offset introduced).
@@ -121,12 +108,13 @@ Junctions and tips stay fixed throughout, so the topology is preserved.
 
 ### 2. Wood-Mesh Reconstruction
 
+<!-- Before/After image -->
+|<img width="375" height="634" alt="front3d" src="https://github.com/user-attachments/assets/285692cd-15e9-4701-92d6-55658d4f75a9" /> | <img width="360" height="670" alt="front3" src="https://github.com/user-attachments/assets/985bc2e1-acee-4223-a585-2005781c76fc" /> |
+| :---: | :---: |
+| Before | After |
+
 #### Patch 4 — Trunk-point threshold raised from 2% to 10% (epsiony)
 
-<!-- Before/After image -->
-| Before | After |
-| :---: | :---: |
-| ![Patch 4 – before](docs/images/patch4_before.png) | ![Patch 4 – after](docs/images/patch4_after.png) |
 
 **Before:** Only points within 2% of tree height from the lowest point were used for trunk analysis.
 
@@ -143,11 +131,6 @@ double epsiony = 0.10;
 
 #### Patch 5 — Improved initial trunk radius estimate (least-squares circle fit)
 
-<!-- Before/After image -->
-| Before | After |
-| :---: | :---: |
-| ![Patch 5 – before](docs/images/patch5_before.png) | ![Patch 5 – after](docs/images/patch5_after.png) |
-
 **Context from the paper:** AdTree uses a Levenberg-Marquardt non-linear least-squares cylinder fit (Section 3.3, Equations 5–7) to accurately determine the trunk radius. This 3D cylinder fit is the core of the original algorithm and is left unchanged. However, this fit requires a good initial estimate to converge correctly. In the original code, this initial estimate comes from the 2D bounding box of trunk points.
 
 **Before:** The initial trunk radius estimate used the 2D bounding box of trunk points projected onto the XY plane — sensitive to outliers and elongated cross-sections.
@@ -163,11 +146,6 @@ TrunkRadius_ = std::max((maxX - minX), (maxY - minY)) / 2.0;
 
 #### Patch 6 — Self-calibrating final trunk radius
 
-<!-- Before/After image -->
-| Before | After |
-| :---: | :---: |
-| ![Patch 6 – before](docs/images/patch6_before.png) | ![Patch 6 – after](docs/images/patch6_after.png) |
-
 **Before:** The trunk radius produced by the earlier estimate/fit was passed directly to `compute_all_edges_radius(TrunkRadius_)`, which propagates it to every branch.
 
 **After:** Just before that propagation, `TrunkRadius_` is recomputed directly from the point cloud: skeleton points within the lowest 2% of tree height are collected, their XY centroid is taken, and `TrunkRadius_` is set to the **median** radial distance of those points from the centroid (only when ≥ 10 points are available).
@@ -178,12 +156,14 @@ TrunkRadius_ = std::max((maxX - minX), (maxY - minY)) / 2.0;
 
 ### 3. Leaf Generation
 
+<!-- Before/After image -->
+| <img width="402" height="646" alt="front4d" src="https://github.com/user-attachments/assets/0b607f42-c42e-42c4-b2fa-82f46dd2c803" /> | <img width="360" height="670" alt="front4" src="https://github.com/user-attachments/assets/b296f416-4eeb-4609-bb5f-f12103b5d166" /> |
+| :---: | :---: |
+| Before | After |
+
+
 #### Patch 7 — Leaf density and size reduction
 
-<!-- Before/After image -->
-| Before | After |
-| :---: | :---: |
-| ![Patch 7 – before](docs/images/patch7_before.png) | ![Patch 7 – after](docs/images/patch7_after.png) |
 
 **Before:** Each end vertex generated up to 10 leaves with a large leaf radius and size.
 ```cpp
@@ -205,11 +185,6 @@ double radius = 0.04 / log((float)num_edges(simplified_skeleton_));
 
 #### Patch 8 — Leaf base attached to branch tip
 
-<!-- Before/After image -->
-| Before | After |
-| :---: | :---: |
-| ![Patch 8 – before](docs/images/patch8_before.png) | ![Patch 8 – after](docs/images/patch8_after.png) |
-
 **Before:** Leaf position was randomly placed along the direction from the branch tip toward its parent, effectively scattering leaves away from the actual branch endpoint.
 ```cpp
 vec3 pEnd = pCurrent - (random_float() / 2.0) * ((pCurrent - pParent).normalize());
@@ -230,11 +205,6 @@ vec3 dirLeaf = (randPerp * 0.6f + branchDir * 0.4f).normalize();
 ---
 
 #### Patch 9 — Elliptic leaf shape
-
-<!-- Before/After image -->
-| Before | After |
-| :---: | :---: |
-| ![Patch 9 – before](docs/images/patch9_before.png) | ![Patch 9 – after](docs/images/patch9_after.png) |
 
 **Before:** Each leaf was a flat quad (two triangles), producing rectangular leaves with no shape variation.
 
