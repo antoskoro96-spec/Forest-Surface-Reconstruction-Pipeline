@@ -52,9 +52,9 @@ The original AdTree C++ source is modified with nine patches applied automatical
 
 ### 1. Skeleton Extraction
 
-| Before | After |
-| :---: | :---: |
 | <img src="https://github.com/user-attachments/assets/01632bac-cf79-4df5-9d94-a955315e9ad3" alt="skeleton_old" width="490"> | <img src="https://github.com/user-attachments/assets/0f1fcb3c-4faa-4c1d-962f-7540d6c4fdd3" alt="skeleton_new" width="490"> |
+| :---: | :---: |
+| Before | After |
 
 #### Patch 1 — Initial trunk-point range increased from 2% to 10%
 
@@ -150,10 +150,9 @@ Hard anchors remain fixed throughout this cleanup, so roots, branch junctions, a
 
 ### 2. Wood-Mesh Reconstruction
 
-| Before | After |
-| :---: | :---: |
 | <img width="360" height="670" alt="front3d" src="https://github.com/user-attachments/assets/285692cd-15e9-4701-92d6-55658d4f75a9" /> | <img width="360" height="670" alt="front3" src="https://github.com/user-attachments/assets/985bc2e1-acee-4223-a585-2005781c76fc" /> |
-
+| :---: | :---: |
+| Before | After |
 
 #### Patch 6 — Self-calibrating final trunk radius
 
@@ -171,10 +170,9 @@ compute_all_edges_radius(TrunkRadius_);
 
 ### 3. Leaf Generation
 
-| Before | After |
-| :---: | :---: |
 | <img width="360" height="670" alt="front4d" src="https://github.com/user-attachments/assets/0b607f42-c42e-42c4-b2fa-82f46dd2c803" /> | <img width="360" height="670" alt="front4" src="https://github.com/user-attachments/assets/b296f416-4eeb-4609-bb5f-f12103b5d166" /> |
-
+| :---: | :---: |
+| Before | After |
 
 #### Patch 7 — Leaf density and size reduction
 
