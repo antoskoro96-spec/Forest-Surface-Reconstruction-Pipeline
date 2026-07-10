@@ -44,9 +44,141 @@ Takes a single-tree point cloud as input and runs AdTree directly. Designed for 
 
 ## Changes Made to AdTree
 
-The original AdTree C++ source was modified with four patches applied before compilation. All patches are applied automatically by the pipeline scripts.
+The original AdTree C++ source is modified with nine patches applied automatically before compilation. The patches are grouped and ordered to mirror the three reconstruction stages described in the paper — **skeleton extraction**, **wood-mesh reconstruction** and **leaf generation** — and are numbered consecutively (1–9) across the groups. All patches are applied automatically by the pipeline scripts.
 
-### Patch A — Leaf density and size reduction
+> **Images:** Each patch starts with a before/after comparison. Replace the placeholder paths (`docs/images/patchN_before.png` / `docs/images/patchN_after.png`) with your own screenshots.
+
+### 1. Skeleton Extraction
+
+#### Patch 1 — Location-dependent skeleton simplification
+
+<!-- Before/After image -->
+| Before | After |
+| :---: | :---: |
+| ![Patch 1 – before](docs/images/patch1_before.png) | ![Patch 1 – after](docs/images/patch1_after.png) |
+
+**Before:** A single fixed merge threshold was used for the whole tree when simplifying the skeleton — a vertex was merged whenever the deviation was below `1.0 * r`. This simplified the trunk region too aggressively and oversimplified the main structure.
+```cpp
+double r = (*i_Graph)[edge(i_dVertex, parentV, *i_Graph).first].nRadius;
+if (distance >= 1.0 * r)
+    return false;
+```
+
+**After:** The merge threshold becomes location-dependent, driven by the node's position in the tree (`fraction = lengthOfSubtree(node) / lengthOfSubtree(root)`, ~1 at the trunk, ~0 at the crown tips). A smoothstep over the band `[0.05, 0.25]` relaxes merging at the trunk (threshold `≈ 0.1`, detail preserved) and keeps it aggressive toward the crown (threshold `1.0`).
+```cpp
+double fraction = (rootSubtree > 1e-10) ? (nodeSubtree / rootSubtree) : 0.0;
+double bandLo = 0.05, bandHi = 0.25, curveStrength = 0.1;
+double tt = clamp((fraction - bandLo) / (bandHi - bandLo), 0.0, 1.0);
+double s  = tt*tt*(3.0 - 2.0*tt);                 // smoothstep
+double mergeThreshold = 1.0 + (curveStrength - 1.0) * s;
+if (distance >= mergeThreshold * r)
+    return false;
+```
+
+**Why:** The uniform simplification was too aggressive in the trunk region, oversimplifying the main stem (paper Fig. 2b). Making the decision rule position-dependent preserves trunk and main-branch detail while still simplifying the crown, as described in Section III-A of the paper.
+
+---
+
+#### Patch 2 — Junction-aware skeleton smoothing & gap filling
+
+<!-- Before/After image -->
+| Before | After |
+| :---: | :---: |
+| ![Patch 2 – before](docs/images/patch2_before.png) | ![Patch 2 – after](docs/images/patch2_after.png) |
+
+**Before:** The reconstructed centerline and radii were taken directly from the cubic interpolation of each branch path. This could produce wavy centerlines, jittery radius profiles and long straight jumps where the interpolated points were sparse.
+
+**After:** Each branch path is tagged with `hardAnchors` (root, junctions and branch tips that must not move), then post-processed:
+- **Centerline smoothing** — 4 passes of windowed averaging that never crosses a hard anchor.
+- **Radius smoothing** — 8 passes plus a monotonic non-increasing constraint toward the tip.
+- **Straight-gap filling** — inserts evenly spaced points wherever the spacing between consecutive skeleton points exceeds `1.4 ×` the median spacing.
+
+Junctions and tips stay fixed throughout, so the topology is preserved.
+
+**Why:** Smoother centerlines and radius profiles give more natural, less faceted branch cylinders, and gap filling avoids long straight cylinder segments where the interpolation was sparse — without moving the structural anchor points.
+
+---
+
+#### Patch 3 — Lower trunk straightening
+
+<!-- Before/After image -->
+| Before | After |
+| :---: | :---: |
+| ![Patch 3 – before](docs/images/patch3_before.png) | ![Patch 3 – after](docs/images/patch3_after.png) |
+
+**Before:** The lowest section of the main trunk followed the raw skeleton, which could wobble or lean near the base.
+
+**After:** On the main path only, the lowest ~5% of the trunk (by height) is straightened. An attachment point is found at `5% × TreeHeight`, a least-squares line direction is estimated from the next few points above it, and the points below are projected onto that line while keeping their original heights (no offset introduced).
+
+**Why:** The base of the stem is where reconstruction artifacts are most visible. Aligning the lowest 5% to the local trunk direction estimated just above the base gives a cleaner, more vertical stem.
+
+---
+
+### 2. Wood-Mesh Reconstruction
+
+#### Patch 4 — Trunk-point threshold raised from 2% to 10% (epsiony)
+
+<!-- Before/After image -->
+| Before | After |
+| :---: | :---: |
+| ![Patch 4 – before](docs/images/patch4_before.png) | ![Patch 4 – after](docs/images/patch4_after.png) |
+
+**Before:** Only points within 2% of tree height from the lowest point were used for trunk analysis.
+
+**After:** The threshold is raised to 10%, providing more points for robust trunk radius estimation.
+
+```cpp
+// before
+double epsiony = 0.02;
+// after
+double epsiony = 0.10;
+```
+
+---
+
+#### Patch 5 — Improved initial trunk radius estimate (least-squares circle fit)
+
+<!-- Before/After image -->
+| Before | After |
+| :---: | :---: |
+| ![Patch 5 – before](docs/images/patch5_before.png) | ![Patch 5 – after](docs/images/patch5_after.png) |
+
+**Context from the paper:** AdTree uses a Levenberg-Marquardt non-linear least-squares cylinder fit (Section 3.3, Equations 5–7) to accurately determine the trunk radius. This 3D cylinder fit is the core of the original algorithm and is left unchanged. However, this fit requires a good initial estimate to converge correctly. In the original code, this initial estimate comes from the 2D bounding box of trunk points.
+
+**Before:** The initial trunk radius estimate used the 2D bounding box of trunk points projected onto the XY plane — sensitive to outliers and elongated cross-sections.
+```cpp
+TrunkRadius_ = std::max((maxX - minX), (maxY - minY)) / 2.0;
+```
+
+**After:** A 2D Gauss-Newton least-squares circle fit replaces the bounding box as the initial estimate. It runs for up to 100 iterations using Cramer's rule to solve the 3x3 normal equations, and converges to a better starting value for the subsequent 3D cylinder fit. Applied only when ≥ 1000 trunk points are available.
+
+**Why:** The bounding box overestimates the radius when trunk cross-sections are slightly elongated or contain outliers. A better starting estimate helps the 3D Levenberg-Marquardt cylinder fit (which remains unchanged) converge to a more accurate result, which then propagates to all branch radii via the allometric scaling rule (Equation 8 in the paper).
+
+---
+
+#### Patch 6 — Self-calibrating final trunk radius
+
+<!-- Before/After image -->
+| Before | After |
+| :---: | :---: |
+| ![Patch 6 – before](docs/images/patch6_before.png) | ![Patch 6 – after](docs/images/patch6_after.png) |
+
+**Before:** The trunk radius produced by the earlier estimate/fit was passed directly to `compute_all_edges_radius(TrunkRadius_)`, which propagates it to every branch.
+
+**After:** Just before that propagation, `TrunkRadius_` is recomputed directly from the point cloud: skeleton points within the lowest 2% of tree height are collected, their XY centroid is taken, and `TrunkRadius_` is set to the **median** radial distance of those points from the centroid (only when ≥ 10 points are available).
+
+**Why:** This anchors the final trunk radius to the actual point distribution at the base, reducing over/under-estimation right before the radius is scaled up the rest of the tree. *(Note: this median override runs after Patch 5 — see the note in the pull-request/README feedback about their interplay.)*
+
+---
+
+### 3. Leaf Generation
+
+#### Patch 7 — Leaf density and size reduction
+
+<!-- Before/After image -->
+| Before | After |
+| :---: | :---: |
+| ![Patch 7 – before](docs/images/patch7_before.png) | ![Patch 7 – after](docs/images/patch7_after.png) |
 
 **Before:** Each end vertex generated up to 10 leaves with a large leaf radius and size.
 ```cpp
@@ -66,26 +198,12 @@ double radius = 0.04 / log((float)num_edges(simplified_skeleton_));
 
 ---
 
-### Patch B — Elliptic leaf shape
+#### Patch 8 — Leaf base attached to branch tip
 
-**Before:** Each leaf was a flat quad (two triangles), producing rectangular leaves with no shape variation.
-
-**After:** Each leaf is constructed as an elliptic strip with 6 segments and a sine-profile width function, producing a natural tapered leaf shape.
-
-```cpp
-const int nSegs = 6;
-for (int s = 0; s <= nSegs; ++s) {
-    double t = (double)s / nSegs;
-    double width = sin(M_PI * t) * (2.0 - 0.3 * t);  // tapered elliptic profile
-    ...
-}
-```
-
-**Why:** Flat rectangular quads look unnatural. The elliptic profile gives leaves a realistic pointed tip and wider mid-section.
-
----
-
-### Patch C — Leaf base attached to branch tip
+<!-- Before/After image -->
+| Before | After |
+| :---: | :---: |
+| ![Patch 8 – before](docs/images/patch8_before.png) | ![Patch 8 – after](docs/images/patch8_after.png) |
 
 **Before:** Leaf position was randomly placed along the direction from the branch tip toward its parent, effectively scattering leaves away from the actual branch endpoint.
 ```cpp
@@ -106,33 +224,27 @@ vec3 dirLeaf = (randPerp * 0.6f + branchDir * 0.4f).normalize();
 
 ---
 
-### Patch D — Improved initial trunk radius estimate
+#### Patch 9 — Elliptic leaf shape
 
-**Context from the paper:** AdTree uses a Levenberg-Marquardt non-linear least-squares cylinder fit (Section 3.3, Equations 5–7) to accurately determine the trunk radius. This 3D cylinder fit is the core of the original algorithm and is left unchanged. However, this fit requires a good initial estimate to converge correctly. In the original code, this initial estimate comes from the 2D bounding box of trunk points.
+<!-- Before/After image -->
+| Before | After |
+| :---: | :---: |
+| ![Patch 9 – before](docs/images/patch9_before.png) | ![Patch 9 – after](docs/images/patch9_after.png) |
 
-**Before:** The initial trunk radius estimate used the 2D bounding box of trunk points projected onto the XY plane — sensitive to outliers and elongated cross-sections.
-```cpp
-TrunkRadius_ = std::max((maxX - minX), (maxY - minY)) / 2.0;
-```
+**Before:** Each leaf was a flat quad (two triangles), producing rectangular leaves with no shape variation.
 
-**After:** A 2D Gauss-Newton least-squares circle fit replaces the bounding box as the initial estimate. It runs for up to 100 iterations using Cramer's rule to solve the 3x3 normal equations, and converges to a better starting value for the subsequent 3D cylinder fit. Applied only when ≥ 1000 trunk points are available.
-
-**Why:** The bounding box overestimates the radius when trunk cross-sections are slightly elongated or contain outliers. A better starting estimate helps the 3D Levenberg-Marquardt cylinder fit (which remains unchanged) converge to a more accurate result, which then propagates to all branch radii via the allometric scaling rule (Equation 8 in the paper).
-
----
-
-### Additional: trunk list threshold (epsiony)
-
-**Before:** Only points within 2% of tree height from the lowest point were used for trunk analysis.
-
-**After:** The threshold is raised to 10%, providing more points for robust trunk radius estimation.
+**After:** Each leaf is constructed as an elliptic strip with 6 segments and a sine-profile width function, producing a natural tapered leaf shape.
 
 ```cpp
-// before
-double epsiony = 0.02;
-// after
-double epsiony = 0.10;
+const int nSegs = 6;
+for (int s = 0; s <= nSegs; ++s) {
+    double t = (double)s / nSegs;
+    double width = sin(M_PI * t) * (2.0 - 0.3 * t);  // tapered elliptic profile
+    ...
+}
 ```
+
+**Why:** Flat rectangular quads look unnatural. The elliptic profile gives leaves a realistic pointed tip and wider mid-section.
 
 ---
 
