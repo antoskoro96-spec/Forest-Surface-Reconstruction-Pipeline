@@ -33,9 +33,9 @@ Takes a segmented forest point cloud as input and runs a two-stage pipeline:
 The outputs are merged back into a complete forest and packaged as a ZIP.
 
 
-|  Point Cloud  | Tree instance segmentation | AdTree wood mesh  | After |
+| Point Cloud | Tree instance segmentation | AdTree wood mesh | After |
 | :---: | :---: | :---: | :---: |
-| ![ Point Cloud ](<img width="360" height="670" alt="front1" src="https://github.com/user-attachments/assets/7ae4b63a-79d4-4911-bf63-38eb9e514418" />) | ![Tree instance segmentation](<img width="360" height="670" alt="front2" src="https://github.com/user-attachments/assets/224744a4-bc23-4c1a-9ae1-b65299907390" />) | ![AdTree wood mesh ](<img width="360" height="670" alt="front3" src="https://github.com/user-attachments/assets/9c7799b4-d01d-442f-9091-ba6f644e164b" />) | ![AdTree leaf mesh](<img width="360" height="670" alt="front4" src="https://github.com/user-attachments/assets/87c7a51c-75fd-4d2d-b651-209fbd101188" />) |
+| <img src="https://github.com/user-attachments/assets/7ae4b63a-79d4-4911-bf63-38eb9e514418" alt="Point Cloud" width="180"> | <img src="https://github.com/user-attachments/assets/224744a4-bc23-4c1a-9ae1-b65299907390" alt="Tree instance segmentation" width="180"> | <img src="https://github.com/user-attachments/assets/9c7799b4-d01d-442f-9091-ba6f644e164b" alt="AdTree wood mesh" width="180"> | <img src="https://github.com/user-attachments/assets/87c7a51c-75fd-4d2d-b651-209fbd101188" alt="AdTree leaf mesh" width="180"> |
 
 ### Single Tree Pipeline (`single_tree.py` / `single_tree_reconstruction.ipynb`)
 
