@@ -52,7 +52,7 @@ The original AdTree C++ source is modified with nine patches applied automatical
 
 ### 1. Skeleton Extraction
 
-| <img src="https://github.com/user-attachments/assets/01632bac-cf79-4df5-9d94-a955315e9ad3" alt="skeleton_old" width="390"> | <img src="https://github.com/user-attachments/assets/0f1fcb3c-4faa-4c1d-962f-7540d6c4fdd3" alt="skeleton_new" width="390"> |
+| <img src="https://github.com/user-attachments/assets/01632bac-cf79-4df5-9d94-a955315e9ad3" alt="skeleton_old" width="290"> | <img src="https://github.com/user-attachments/assets/0f1fcb3c-4faa-4c1d-962f-7540d6c4fdd3" alt="skeleton_new" width="290"> |
 | :---: | :---: |
 | Before | After |
 
