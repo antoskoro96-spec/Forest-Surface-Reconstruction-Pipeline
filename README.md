@@ -56,9 +56,11 @@ The original AdTree C++ source is modified with nine patches applied automatical
 #### Patch 1 — Location-dependent skeleton simplification
 
 <!-- Before/After image -->
-| Before | After |
+
+
+| <img width="490" height="580" alt="skeleton_old" src="https://github.com/user-attachments/assets/01632bac-cf79-4df5-9d94-a955315e9ad3" /> |<img width="490" height="580" alt="skeleton _new" src="https://github.com/user-attachments/assets/0f1fcb3c-4faa-4c1d-962f-7540d6c4fdd3" /> |
 | :---: | :---: |
-| ![Patch 1 – before](docs/images/patch1_before.png) | ![Patch 1 – after](docs/images/patch1_after.png) |
+| Before | After |
 
 **Before:** A single fixed merge threshold was used for the whole tree when simplifying the skeleton — a vertex was merged whenever the deviation was below `1.0 * r`. This simplified the trunk region too aggressively and oversimplified the main structure.
 ```cpp
