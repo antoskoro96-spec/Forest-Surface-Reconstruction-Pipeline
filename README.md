@@ -25,7 +25,7 @@ This project builds directly on the following open-source works. Please cite and
 
 ### Forest Pipeline (`pipeline.py` / `forest_reconstruction_pipeline.ipynb`)
 
-Takes a segmented forest point cloud as input and runs a two-stage pipeline:
+Takes a forest point cloud as input and runs a two-stage pipeline:
 
 1. **PointTree** segments the full forest scan into individual tree instances, detects trunk positions and estimates trunk diameters.
 2. **AdTree** reconstructs each individual tree — generating a skeleton, branch mesh and leaf mesh.
