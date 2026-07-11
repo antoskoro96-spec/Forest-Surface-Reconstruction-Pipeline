@@ -13,7 +13,7 @@ This project builds directly on the following open-source works. Please cite and
 | Project | Authors | Repository |
 |---|---|---|
 | **AdTree** | Shenglan Du, Roderik Lindenbergh, Hugo Ledoux, Jantien Stoter, Liangliang Nan | [tudelft3d/AdTree](https://github.com/tudelft3d/AdTree) |
-| **PointTree** | Jan Windheuser et al. | [ai4trees/pointtree](https://github.com/ai4trees/pointtree) |
+| **PointTree** | Josafat-Mattias Burmeister, Andreas Tockner, Stefan Reder, Markus Engel, Rico Richter, Jan-Peter Mund, and Jürgen Döllner | [ai4trees/pointtree](https://github.com/ai4trees/pointtree) |
 
 > **Note on validation data:** Individual tree point clouds for testing were obtained from the [TreeNet3D dataset](https://github.com/ao216/TreeNet3D) (Tang et al., 2024). TreeNet3D data requires a signed agreement with the authors and cannot be redistributed. Contact shengjuntang@szu.edu.cn with your institutional email to request access.
 
