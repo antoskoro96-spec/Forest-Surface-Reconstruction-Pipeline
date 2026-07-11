@@ -47,7 +47,7 @@ Takes a single-tree point cloud as input and runs AdTree directly. Designed for 
 
 ## Changes Made to AdTree
 
-The original AdTree C++ source is modified with nine patches applied automatically before compilation. The patches are grouped and ordered to mirror the three reconstruction stages described in the paper — **skeleton extraction**, **wood-mesh reconstruction**, and **leaf generation** — and are numbered consecutively (1–9) across the groups. All patches are applied automatically by the pipeline scripts.
+The original AdTree C++ source is modified with nine patches applied automatically before compilation. The patches are grouped and ordered to mirror the three reconstruction stages described in the paper — **skeleton extraction**, **wood mesh reconstruction**, and **leaf mesh generation** — and are numbered consecutively (1–9) across the groups. All patches are applied automatically by the pipeline scripts.
 
 
 ### 1. Skeleton Extraction
@@ -148,7 +148,7 @@ Hard anchors remain fixed throughout this cleanup, so roots, branch junctions, a
 
 ---
 
-### 2. Wood-Mesh Reconstruction
+### 2. Wood Mesh Reconstruction
 
 | <img width="260" height="570" alt="front3d" src="https://github.com/user-attachments/assets/285692cd-15e9-4701-92d6-55658d4f75a9" /> | <img width="260" height="570" alt="front3" src="https://github.com/user-attachments/assets/985bc2e1-acee-4223-a585-2005781c76fc" /> |
 | :---: | :---: |
@@ -168,7 +168,7 @@ compute_all_edges_radius(TrunkRadius_);
 
 ---
 
-### 3. Leaf Generation
+### 3. Leaf Mesh Generation
 
 | <img width="260" height="570" alt="front4d" src="https://github.com/user-attachments/assets/0b607f42-c42e-42c4-b2fa-82f46dd2c803" /> | <img width="260" height="570" alt="front4" src="https://github.com/user-attachments/assets/b296f416-4eeb-4609-bb5f-f12103b5d166" /> |
 | :---: | :---: |
