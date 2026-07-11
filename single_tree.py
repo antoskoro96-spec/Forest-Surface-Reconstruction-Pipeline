@@ -29,31 +29,680 @@ KEEP_RATIOS         = [0.6, 0.3]
 
 def apply_patches(adtree_src):
     skel = os.path.join(adtree_src, 'AdTree', 'skeleton.cpp')
-    with open(skel) as f:
+    with open(skel, 'r') as f:
         content = f.read()
-    content = content.replace('int density = ceil(random_float() * 10);', 'int density = ceil(random_float() * 1);')
-    content = content.replace('generate_leaves(currentLeafVertex, 0.05);', 'generate_leaves(currentLeafVertex, 0.02);')
-    content = content.replace('double radius = 0.2 / log((float)num_edges(simplified_skeleton_));', 'double radius = 0.04 / log((float)num_edges(simplified_skeleton_));')
-    content = content.replace('\tdouble epsiony = 0.02;\n', '\tdouble epsiony = 0.10;\n')
-    print('  Patches A + epsiony applied')
-    old_generate = ('void Skeleton::generate_leaves(SGraphVertexDescriptor i_LeafVertex, double leafsize_Factor)\n{\n\t//generate a random density number\n    int density = ceil(random_float() * 1);\n    double radius = 0.04 / log((float)num_edges(simplified_skeleton_));\n\t//get the position of the current leaf vertex and its parent\n    vec3 pCurrent = simplified_skeleton_[i_LeafVertex].cVert;\n    SGraphVertexDescriptor i_LeafParent = simplified_skeleton_[i_LeafVertex].nParent;\n    vec3 pParent = simplified_skeleton_[i_LeafParent].cVert;\n\t//get the end position where the leaf should grow\n    vec3 pEnd = pCurrent - (random_float() / 2.0) * ((pCurrent - pParent).normalize());\n\n\t//generate i-th random leaf\n\tfor (int i = 0; i < density; ++i)\n\t{\n\t\t//generate a random leaf position\n        vec3 dirLeaf((random_float() - 0.5) / 0.5, (random_float() - 0.5) / 0.5, (random_float() - 0.5) / 0.5);\n\t\tdirLeaf = dirLeaf.normalize();\n        double l = random_float() * radius;\n\t\tvec3 pLeaf = pEnd + dirLeaf * l;\n\t\t//generate normal and color vector\n\t\tvec3 dirParent2Leaf = (pLeaf - pParent).normalize();\n\t\tvec3 normal = (cross(dirParent2Leaf, dirLeaf)).normalize();\n\t\t//generate a new leaf\n\t\tLeaf newleaf;\n\t\tnewleaf.cPos = pLeaf;\n\t\tnewleaf.cDir = dirLeaf;\n\t\t//generate a random normal vector direction\n        vec3 delta((random_float() - 0.5) / 0.5, (random_float() - 0.5) / 0.5, (random_float() - 0.5) / 0.5);\n        newleaf.cNormal = (normal + random_float()*delta*0.5).normalize();\n\t\tnewleaf.pSource = i_LeafVertex;\n\t\tnewleaf.nLength = BoundingDistance_ * leafsize_Factor;\n\t\tnewleaf.nRad = newleaf.nLength / 5;\n\t\tVecLeaves_.push_back(newleaf);\n\t}\n\n\treturn;\n}')
-    new_generate = ('void Skeleton::generate_leaves(SGraphVertexDescriptor i_LeafVertex, double leafsize_Factor)\n{\n\t//generate a random density number\n    int density = ceil(random_float() * 1);\n    double radius = 0.04 / log((float)num_edges(simplified_skeleton_));\n\t//get the position of the current leaf vertex and its parent\n    vec3 pCurrent = simplified_skeleton_[i_LeafVertex].cVert;\n    SGraphVertexDescriptor i_LeafParent = simplified_skeleton_[i_LeafVertex].nParent;\n    vec3 pParent = simplified_skeleton_[i_LeafParent].cVert;\n\t// branch growth direction\n    vec3 branchDir = (pCurrent - pParent).normalize();\n\n\t//generate i-th random leaf\n\tfor (int i = 0; i < density; ++i)\n\t{\n\t\t// leaf base directly at branch tip\n        double offset = random_float() * radius * 0.5;\n        vec3 pLeaf = pCurrent - branchDir * offset;\n\n\t\t// leaf direction: perpendicular away from branch\n        vec3 randPerp((random_float()-0.5)/0.5, (random_float()-0.5)/0.5, (random_float()-0.5)/0.5);\n        randPerp = randPerp.normalize();\n        randPerp = (randPerp - branchDir * dot(randPerp, branchDir)).normalize();\n        vec3 dirLeaf = (randPerp * 0.6f + branchDir * 0.4f).normalize();\n\n\t\t//generate normal and color vector\n\t\tvec3 dirParent2Leaf = (pLeaf - pParent).normalize();\n\t\tvec3 normal = (cross(dirParent2Leaf, dirLeaf)).normalize();\n\t\t//generate a new leaf\n\t\tLeaf newleaf;\n\t\tnewleaf.cPos = pLeaf;\n\t\tnewleaf.cDir = dirLeaf;\n\t\t//generate a random normal vector direction\n        vec3 delta((random_float()-0.5)/0.5, (random_float()-0.5)/0.5, (random_float()-0.5)/0.5);\n        newleaf.cNormal = (normal + random_float()*delta*0.5).normalize();\n\t\tnewleaf.pSource = i_LeafVertex;\n\t\tnewleaf.nLength = BoundingDistance_ * leafsize_Factor;\n\t\tnewleaf.nRad = newleaf.nLength / 5;\n\t\tVecLeaves_.push_back(newleaf);\n\t}\n\n\treturn;\n}')
-    assert old_generate in content, 'ERROR: generate_leaves not found!'
-    content = content.replace(old_generate, new_generate, 1)
-    print('  Patch C applied')
-    old_func = ('bool Skeleton::reconstruct_leaves(SurfaceMesh *mesh) {\n    if (!add_leaves())\n        return false;\n\n    if (VecLeaves_.empty())\n        return false;\n\n    for (std::size_t i = 0; i < VecLeaves_.size(); i++) {\n        const Leaf& iLeaf = VecLeaves_[i];\n        //compute the center and major axis, minor axis of the leaf quad\n        vec3 pCenter((iLeaf.cPos + (0.5 * iLeaf.cDir * iLeaf.nRad)));\n        vec3 dirMajor(0.5 * iLeaf.cDir * iLeaf.nLength);\n        vec3 dirMinor(0.5 * cross(iLeaf.cDir, iLeaf.cNormal)*iLeaf.nRad);\n        //compute the corner coordinates\n        const vec3 a = pCenter - dirMajor - dirMinor;\n        const vec3 b = pCenter + dirMajor - dirMinor;\n        const vec3 c = pCenter + dirMajor + dirMinor;\n        const vec3 d = pCenter - dirMajor + dirMinor;\n        SurfaceMesh::Vertex va = mesh->add_vertex(a);\n        SurfaceMesh::Vertex vb = mesh->add_vertex(b);\n        SurfaceMesh::Vertex vc = mesh->add_vertex(c);\n        SurfaceMesh::Vertex vd = mesh->add_vertex(d);\n        mesh->add_triangle(va, vb, vc);\n        mesh->add_triangle(va, vc, vd);\n    }\n\n    return true;\n}')
-    new_func = ('bool Skeleton::reconstruct_leaves(SurfaceMesh *mesh) {\n    if (!add_leaves())\n        return false;\n\n    if (VecLeaves_.empty())\n        return false;\n\n    const int nSegs = 6;\n    for (std::size_t i = 0; i < VecLeaves_.size(); i++) {\n        const Leaf& iLeaf = VecLeaves_[i];\n        vec3 dir = iLeaf.cDir; vec3 norm = iLeaf.cNormal;\n        vec3 axisL = dir.normalize() * iLeaf.nLength;\n        vec3 axisW = cross(dir, norm).normalize() * iLeaf.nRad;\n        vec3 pBase = iLeaf.cPos;\n        std::vector<SurfaceMesh::Vertex> leftVerts, rightVerts;\n        for (int s = 0; s <= nSegs; ++s) {\n            double t = (double)s / nSegs;\n            double width = sin(M_PI * t) * (2.0 - 0.3 * t);\n            vec3 pAlong = pBase + axisL * t;\n            leftVerts.push_back(mesh->add_vertex(pAlong - axisW * width * 0.5));\n            rightVerts.push_back(mesh->add_vertex(pAlong + axisW * width * 0.5));\n        }\n        for (int s = 0; s < nSegs; ++s) {\n            mesh->add_triangle(leftVerts[s],   rightVerts[s],   rightVerts[s+1]);\n            mesh->add_triangle(leftVerts[s],   rightVerts[s+1], leftVerts[s+1]);\n        }\n    }\n    return true;\n}')
-    assert old_func in content, 'ERROR: reconstruct_leaves not found!'
-    content = content.replace(old_func, new_func, 1)
-    print('  Patch B applied')
-    old_bbox = ('\t//project the trunk points on the xy plane and get the bounding box\n\tdouble minX = DBL_MAX;\n\tdouble maxX = -DBL_MAX;\n\tdouble minY = DBL_MAX;\n\tdouble maxY = -DBL_MAX;\n\tfor (int nP = 0; nP < trunkList.size(); nP++)\n\t{\n\t\tif (minX > trunkList[nP].x)\n\t\t\tminX = trunkList[nP].x;\n\t\tif (maxX < trunkList[nP].x)\n\t\t\tmaxX = trunkList[nP].x;\n\t\tif (minY > trunkList[nP].y)\n\t\t\tminY = trunkList[nP].y;\n\t\tif (maxY < trunkList[nP].y)\n\t\t\tmaxY = trunkList[nP].y;\n\t}\n\n\t//assign the raw radius value and return\n    TrunkRadius_ = std::max((maxX - minX), (maxY - minY)) / 2.0;\n')
-    new_bbox = ('\t// Patch D: Least-Squares circle fit instead of bounding box\n\tdouble minX = DBL_MAX, maxX = -DBL_MAX;\n\tdouble minY = DBL_MAX, maxY = -DBL_MAX;\n\tfor (int nP = 0; nP < (int)trunkList.size(); nP++) {\n\t\tif (minX > trunkList[nP].x) minX = trunkList[nP].x;\n\t\tif (maxX < trunkList[nP].x) maxX = trunkList[nP].x;\n\t\tif (minY > trunkList[nP].y) minY = trunkList[nP].y;\n\t\tif (maxY < trunkList[nP].y) maxY = trunkList[nP].y;\n\t}\n\tdouble cx = 0.0, cy = 0.0;\n\tfor (int nP = 0; nP < (int)trunkList.size(); nP++) {\n\t\tcx += trunkList[nP].x; cy += trunkList[nP].y;\n\t}\n\tcx /= (int)trunkList.size(); cy /= (int)trunkList.size();\n\tdouble r  = std::max((maxX - minX), (maxY - minY)) / 2.0;\n\tdouble r_max = r * 2.0;\n\tif ((int)trunkList.size() >= 1000) {\n\t\tfor (int iter = 0; iter < 100; ++iter) {\n\t\t\tdouble dCx=0, dCy=0, dR=0;\n\t\t\tdouble A00=0,A01=0,A02=0,A11=0,A12=0,A22=0,b0=0,b1=0,b2=0;\n\t\t\tfor (int nP = 0; nP < (int)trunkList.size(); nP++) {\n\t\t\t\tdouble dx=trunkList[nP].x-cx, dy=trunkList[nP].y-cy;\n\t\t\t\tdouble dist=std::sqrt(dx*dx+dy*dy);\n\t\t\t\tif (dist<1e-10) continue;\n\t\t\t\tdouble res=dist-r, Jcx=-dx/dist, Jcy=-dy/dist, Jr=-1.0;\n\t\t\t\tA00+=Jcx*Jcx; A01+=Jcx*Jcy; A02+=Jcx*Jr;\n\t\t\t\tA11+=Jcy*Jcy; A12+=Jcy*Jr;  A22+=Jr*Jr;\n\t\t\t\tb0+=Jcx*res;  b1+=Jcy*res;  b2+=Jr*res;\n\t\t\t}\n\t\t\tdouble det=A00*(A11*A22-A12*A12)-A01*(A01*A22-A12*A02)+A02*(A01*A12-A11*A02);\n\t\t\tif (std::abs(det)<1e-14) break;\n\t\t\tdCx=(b0*(A11*A22-A12*A12)-A01*(b1*A22-A12*b2)+A02*(b1*A12-A11*b2))/det;\n\t\t\tdCy=(A00*(b1*A22-A12*b2)-b0*(A01*A22-A12*A02)+A02*(A01*b2-b1*A02))/det;\n\t\t\tdR=(A00*(A11*b2-b1*A12)-A01*(A01*b2-b1*A02)+b0*(A01*A12-A11*A02))/det;\n\t\t\tcx-=dCx; cy-=dCy; r-=dR;\n\t\t\tif (r<0) r=std::abs(r);\n\t\t\tif (r>r_max) { r=r_max; break; }\n\t\t\tif (std::abs(dCx)+std::abs(dCy)+std::abs(dR)<1e-8) break;\n\t\t}\n\t}\n    TrunkRadius_ = r;\n')
+
+
+    # Patch 1 - Skeleton Extraction: initial trunk-point range raised 2% -> 10%
+
+    content = content.replace(
+        '\tdouble epsiony = 0.02;\n',
+        '\tdouble epsiony = 0.10;\n'
+    )
+    print('Patch 1: initial trunk-point range raised to 10%')
+
+
+    # Patch 2 - Skeleton Extraction: robust initial trunk radius via least-squares circle fit
+
+    old_bbox = (
+        '\t//project the trunk points on the xy plane and get the bounding box\n'
+        '\tdouble minX = DBL_MAX;\n'
+        '\tdouble maxX = -DBL_MAX;\n'
+        '\tdouble minY = DBL_MAX;\n'
+        '\tdouble maxY = -DBL_MAX;\n'
+        '\tfor (int nP = 0; nP < trunkList.size(); nP++)\n'
+        '\t{\n'
+        '\t\tif (minX > trunkList[nP].x)\n'
+        '\t\t\tminX = trunkList[nP].x;\n'
+        '\t\tif (maxX < trunkList[nP].x)\n'
+        '\t\t\tmaxX = trunkList[nP].x;\n'
+        '\t\tif (minY > trunkList[nP].y)\n'
+        '\t\t\tminY = trunkList[nP].y;\n'
+        '\t\tif (maxY < trunkList[nP].y)\n'
+        '\t\t\tmaxY = trunkList[nP].y;\n'
+        '\t}\n'
+        '\n'
+        '\t//assign the raw radius value and return\n'
+        '    TrunkRadius_ = std::max((maxX - minX), (maxY - minY)) / 2.0;\n'
+    )
+    new_bbox = (
+        '\t// Patch 2: Least-Squares circle fit instead of bounding box\n'
+        '\tdouble minX = DBL_MAX, maxX = -DBL_MAX;\n'
+        '\tdouble minY = DBL_MAX, maxY = -DBL_MAX;\n'
+        '\tfor (int nP = 0; nP < (int)trunkList.size(); nP++) {\n'
+        '\t\tif (minX > trunkList[nP].x) minX = trunkList[nP].x;\n'
+        '\t\tif (maxX < trunkList[nP].x) maxX = trunkList[nP].x;\n'
+        '\t\tif (minY > trunkList[nP].y) minY = trunkList[nP].y;\n'
+        '\t\tif (maxY < trunkList[nP].y) maxY = trunkList[nP].y;\n'
+        '\t}\n'
+        '\tdouble cx = 0.0, cy = 0.0;\n'
+        '\tfor (int nP = 0; nP < (int)trunkList.size(); nP++) {\n'
+        '\t\tcx += trunkList[nP].x; cy += trunkList[nP].y;\n'
+        '\t}\n'
+        '\tcx /= (int)trunkList.size(); cy /= (int)trunkList.size();\n'
+        '\tdouble r  = std::max((maxX - minX), (maxY - minY)) / 2.0;\n'
+        '\tdouble r_max = r * 2.0;\n'
+        '\tif ((int)trunkList.size() >= 1000) {\n'
+        '\t\tfor (int iter = 0; iter < 100; ++iter) {\n'
+        '\t\t\tdouble dCx=0, dCy=0, dR=0;\n'
+        '\t\t\tdouble A00=0,A01=0,A02=0,A11=0,A12=0,A22=0,b0=0,b1=0,b2=0;\n'
+        '\t\t\tfor (int nP = 0; nP < (int)trunkList.size(); nP++) {\n'
+        '\t\t\t\tdouble dx=trunkList[nP].x-cx, dy=trunkList[nP].y-cy;\n'
+        '\t\t\t\tdouble dist=std::sqrt(dx*dx+dy*dy);\n'
+        '\t\t\t\tif (dist<1e-10) continue;\n'
+        '\t\t\t\tdouble res=dist-r, Jcx=-dx/dist, Jcy=-dy/dist, Jr=-1.0;\n'
+        '\t\t\t\tA00+=Jcx*Jcx; A01+=Jcx*Jcy; A02+=Jcx*Jr;\n'
+        '\t\t\t\tA11+=Jcy*Jcy; A12+=Jcy*Jr;  A22+=Jr*Jr;\n'
+        '\t\t\t\tb0+=Jcx*res;  b1+=Jcy*res;  b2+=Jr*res;\n'
+        '\t\t\t}\n'
+        '\t\t\tdouble det=A00*(A11*A22-A12*A12)-A01*(A01*A22-A12*A02)+A02*(A01*A12-A11*A02);\n'
+        '\t\t\tif (std::abs(det)<1e-14) break;\n'
+        '\t\t\tdCx=(b0*(A11*A22-A12*A12)-A01*(b1*A22-A12*b2)+A02*(b1*A12-A11*b2))/det;\n'
+        '\t\t\tdCy=(A00*(b1*A22-A12*b2)-b0*(A01*A22-A12*A02)+A02*(A01*b2-b1*A02))/det;\n'
+        '\t\t\tdR=(A00*(A11*b2-b1*A12)-A01*(A01*b2-b1*A02)+b0*(A01*A12-A11*A02))/det;\n'
+        '\t\t\tcx-=dCx; cy-=dCy; r-=dR;\n'
+        '\t\t\tif (r<0) r=std::abs(r);\n'
+        '\t\t\tif (r>r_max) { r=r_max; break; }\n'
+        '\t\t\tif (std::abs(dCx)+std::abs(dCy)+std::abs(dR)<1e-8) break;\n'
+        '\t\t}\n'
+        '\t}\n'
+        '    TrunkRadius_ = r;\n'
+    )
     assert old_bbox in content, 'ERROR: BBox not found!'
     content = content.replace(old_bbox, new_bbox, 1)
-    print('  Patch D applied')
+    print('Patch 2: least-squares circle fit applied')
+
+
+    # Patch 3 - Skeleton Extraction: adaptive skeleton simplification
+
+    old = (
+        '\t//determine the merging threshold and check if current vertex can be merged or not\n'
+        '\tdouble r = (*i_Graph)[edge(i_dVertex, parentV, *i_Graph).first].nRadius;\n'
+        '\tif (distance >= 1.0 * r) \n'
+        '\t\treturn false;\n'
+        '\telse\n'
+    )
+    new = (
+        '\t//determine the merging threshold and check if current vertex can be merged or not\n'
+        '\tdouble r = (*i_Graph)[edge(i_dVertex, parentV, *i_Graph).first].nRadius;\n'
+        '\tdouble rootSubtree = (*i_Graph)[RootV_].lengthOfSubtree;\n'
+        '\tdouble nodeSubtree = (*i_Graph)[i_dVertex].lengthOfSubtree;\n'
+        '\tdouble fraction = (rootSubtree > 1e-10) ? (nodeSubtree / rootSubtree) : 0.0;\n'
+        '\tdouble bandLo = 0.05, bandHi = 0.25;\n'
+        '\tdouble curveStrength = 0.1;\n'
+        '\tdouble tt = (fraction - bandLo) / (bandHi - bandLo);\n'
+        '\tif (tt < 0.0) tt = 0.0;\n'
+        '\tif (tt > 1.0) tt = 1.0;\n'
+        '\tdouble s = tt*tt*(3.0 - 2.0*tt);\n'
+        '\tdouble mergeThreshold = 1.0 + (curveStrength - 1.0) * s;\n'
+        '\tif (distance >= mergeThreshold * r)\n'
+        '\t\treturn false;\n'
+        '\telse\n'
+    )
+    assert old in content, 'ERROR: merge-threshold anchor not found'
+    content = content.replace(old, new, 1)
+    print('Patch 3: adaptive skeleton simplification applied')
+
+
+    # Patch 4 - Skeleton Extraction: junction-aware skeleton smoothing & straight-gap filling
+
+    old = (
+        '        std::vector<vec3> interpolatedPoints;\n'
+        '        std::vector<double> interpolatedRadii;\n'
+    )
+    new = (
+        '        std::vector<vec3> interpolatedPoints;\n'
+        '        std::vector<double> interpolatedRadii;\n'
+        '        std::vector<unsigned char> hardAnchors;\n'
+    )
+    assert old in content, 'ERROR: hardAnchors vector anchor not found'
+    content = content.replace(old, new, 1)
+    print('Patch 4: hardAnchors vector added')
+
+    old = (
+        '            //generate interpolated points\n'
+        '            for (std::size_t n = 0; n < numOfSlicesCurrent[numOfSlicesCurrent.size() - 1]; ++n)\n'
+        '            {\n'
+        '                double t = static_cast<double>(static_cast<double>(n) / numOfSlicesCurrent[numOfSlicesCurrent.size() - 1]);\n'
+        '                vec3 point = A * t*t*t + B * t*t + C * t + D;\n'
+        '\n'
+        '                if (n == 0) {\n'
+        '                    interpolatedPoints.push_back(point);\n'
+        '                    interpolatedRadii.push_back(sourceRadius - n * deltaOfRadius);\n'
+        '                }\n'
+        '                else {\n'
+        '                    const vec3& prev = interpolatedPoints.back();\n'
+        '                    if (distance2(prev, point) > epsilon<float>() * 10) { // in case of duplicated points (tiny cylinder)\n'
+        '                        interpolatedPoints.push_back(point);\n'
+        '                        interpolatedRadii.push_back(sourceRadius - n * deltaOfRadius);\n'
+        '                    }\n'
+        '                }\n'
+        '            }\n'
+    )
+    new = (
+        '            //generate interpolated points\n'
+        '            bool hardSource = (sourceV == RootV_) || (out_degree(sourceV, simplified_skeleton_) != 2);\n'
+        '            for (std::size_t n = 0; n < numOfSlicesCurrent[numOfSlicesCurrent.size() - 1]; ++n)\n'
+        '            {\n'
+        '                double t = static_cast<double>(static_cast<double>(n) / numOfSlicesCurrent[numOfSlicesCurrent.size() - 1]);\n'
+        '                vec3 point = A * t*t*t + B * t*t + C * t + D;\n'
+        '                double rr = sourceRadius - n * deltaOfRadius;\n'
+        '\n'
+        '                if (n == 0) {\n'
+        '                    interpolatedPoints.push_back(point);\n'
+        '                    interpolatedRadii.push_back(rr);\n'
+        '                    hardAnchors.push_back(hardSource ? 1 : 0);\n'
+        '                }\n'
+        '                else {\n'
+        '                    const vec3& prev = interpolatedPoints.back();\n'
+        '                    if (distance2(prev, point) > epsilon<float>() * 10) { // in case of duplicated points (tiny cylinder)\n'
+        '                        interpolatedPoints.push_back(point);\n'
+        '                        interpolatedRadii.push_back(rr);\n'
+        '                        hardAnchors.push_back(0);\n'
+        '                    }\n'
+        '                }\n'
+        '            }\n'
+    )
+    assert old in content, 'ERROR: interpolation block not found'
+    content = content.replace(old, new, 1)
+    print('Patch 4: hardAnchors added during interpolation')
+
+    old = (
+        '        //push back the last vertex\n'
+        '        SGraphVertexDescriptor endV = currentPath.back();\n'
+        '        const vec3& prev = interpolatedPoints.back();\n'
+        '        const vec3& point = simplified_skeleton_[endV].cVert;\n'
+        '        if (distance2(prev, point) > epsilon<float>() * 10) { // in case of duplicated points (tiny cylinder)\n'
+        '            interpolatedPoints.push_back(point);\n'
+        '            interpolatedRadii.push_back(0);\n'
+        '        }\n'
+        '\n'
+        '\t\tif (interpolatedPoints.size() < 2)\n'
+        '\t\t\tcontinue; // Too few points to construct a cylinder\n'
+    )
+    new = (
+        '        //push back the last vertex\n'
+        '        SGraphVertexDescriptor endV = currentPath.back();\n'
+        '        const vec3& prev = interpolatedPoints.back();\n'
+        '        const vec3& point = simplified_skeleton_[endV].cVert;\n'
+        '        if (distance2(prev, point) > epsilon<float>() * 10) { // in case of duplicated points (tiny cylinder)\n'
+        '            interpolatedPoints.push_back(point);\n'
+        '            interpolatedRadii.push_back(0);\n'
+        '            hardAnchors.push_back(1);\n'
+        '        }\n'
+        '\n'
+        '        // Patch 4: junction-aware centerline smoothing\n'
+        '        if (interpolatedPoints.size() == hardAnchors.size() && interpolatedPoints.size() >= 7) {\n'
+        '            const int HALFWIN = 4;\n'
+        '            const int PASSES = 4;\n'
+        '            std::vector<vec3> p = interpolatedPoints;\n'
+        '            const int nPts = (int)p.size();\n'
+        '\n'
+        '            for (int pass = 0; pass < PASSES; ++pass) {\n'
+        '                std::vector<vec3> sm = p;\n'
+        '\n'
+        '                for (int i = 1; i + 1 < nPts; ++i) {\n'
+        '                    if (hardAnchors[i])\n'
+        '                        continue;\n'
+        '\n'
+        '                    int lo = i;\n'
+        '                    for (int s = 0; s < HALFWIN && lo > 0; ++s) {\n'
+        '                        --lo;\n'
+        '                        if (hardAnchors[lo])\n'
+        '                            break;\n'
+        '                    }\n'
+        '\n'
+        '                    int hi = i;\n'
+        '                    for (int s = 0; s < HALFWIN && hi + 1 < nPts; ++s) {\n'
+        '                        ++hi;\n'
+        '                        if (hardAnchors[hi])\n'
+        '                            break;\n'
+        '                    }\n'
+        '\n'
+        '                    vec3 acc(0,0,0);\n'
+        '                    int cnt = 0;\n'
+        '                    for (int k = lo; k <= hi; ++k) {\n'
+        '                        acc += p[k];\n'
+        '                        ++cnt;\n'
+        '                    }\n'
+        '\n'
+        '                    vec3 avg = acc / (float)cnt;\n'
+        '                    sm[i] = 0.35f * p[i] + 0.65f * avg;\n'
+        '                }\n'
+        '\n'
+        '                p.swap(sm);\n'
+        '            }\n'
+        '\n'
+        '            interpolatedPoints.swap(p);\n'
+        '        }\n'
+        '\n'
+        '        // Patch 4: radius smoothing\n'
+        '        if (interpolatedRadii.size() == hardAnchors.size() && interpolatedRadii.size() >= 5) {\n'
+        '            bool closedTip = (interpolatedRadii.back() == 0.0);\n'
+        '            std::vector<double> r = interpolatedRadii;\n'
+        '\n'
+        '            if (closedTip && r.size() >= 2)\n'
+        '                r.back() = r[r.size()-2];\n'
+        '\n'
+        '            for (int pass = 0; pass < 8; ++pass) {\n'
+        '                std::vector<double> tmp = r;\n'
+        '\n'
+        '                for (std::size_t k = 1; k + 1 < r.size(); ++k) {\n'
+        '                    if (hardAnchors[k])\n'
+        '                        continue;\n'
+        '\n'
+        '                    tmp[k] = 0.20 * r[k-1] + 0.60 * r[k] + 0.20 * r[k+1];\n'
+        '                }\n'
+        '\n'
+        '                r.swap(tmp);\n'
+        '            }\n'
+        '\n'
+        '            for (std::size_t k = 1; k < r.size(); ++k) {\n'
+        '                if (hardAnchors[k])\n'
+        '                    continue;\n'
+        '\n'
+        '                if (r[k] > r[k-1])\n'
+        '                    r[k] = r[k-1];\n'
+        '            }\n'
+        '\n'
+        '            if (closedTip)\n'
+        '                r.back() = 0.0;\n'
+        '\n'
+        '            interpolatedRadii.swap(r);\n'
+        '        }\n'
+        '\n'
+        '\t\tif (interpolatedPoints.size() < 2)\n'
+        '\t\t\tcontinue; // Too few points to construct a cylinder\n'
+    )
+    assert old in content, 'ERROR: final vertex block not found'
+    content = content.replace(old, new, 1)
+    print('Patch 4: junction-aware centerline/radius smoothing applied')
+
+    old = (
+        '\t\tif (interpolatedPoints.size() < 2)\n'
+        '\t\t\tcontinue; // Too few points to construct a cylinder\n'
+    )
+    new = (
+        '        // Patch 4: direct shortcut gap filling\n'
+        '        if (interpolatedPoints.size() == interpolatedRadii.size() &&\n'
+        '            interpolatedPoints.size() == hardAnchors.size() &&\n'
+        '            interpolatedPoints.size() >= 3) {\n'
+        '\n'
+        '            std::vector<double> segLens;\n'
+        '            segLens.reserve(interpolatedPoints.size() - 1);\n'
+        '\n'
+        '            for (std::size_t i = 0; i + 1 < interpolatedPoints.size(); ++i) {\n'
+        '                const vec3& a = interpolatedPoints[i];\n'
+        '                const vec3& b = interpolatedPoints[i + 1];\n'
+        '                double dx = b.x - a.x;\n'
+        '                double dy = b.y - a.y;\n'
+        '                double dz = b.z - a.z;\n'
+        '                double len = std::sqrt(dx*dx + dy*dy + dz*dz);\n'
+        '                if (len > 1e-10)\n'
+        '                    segLens.push_back(len);\n'
+        '            }\n'
+        '\n'
+        '            if (!segLens.empty()) {\n'
+        '                std::sort(segLens.begin(), segLens.end());\n'
+        '                double medianLen = segLens[segLens.size() / 2];\n'
+        '                double minSpacing = TreeHeight_ * 0.0007;\n'
+        '                double targetSpacing = std::max(medianLen, minSpacing);\n'
+        '                const double GAP_FACTOR = 1.4;\n'
+        '                const int MAX_INSERT_PER_GAP = 40;\n'
+        '\n'
+        '                std::vector<vec3> fixedPoints;\n'
+        '                std::vector<double> fixedRadii;\n'
+        '                std::vector<unsigned char> fixedAnchors;\n'
+        '\n'
+        '                fixedPoints.reserve(interpolatedPoints.size() * 2);\n'
+        '                fixedRadii.reserve(interpolatedRadii.size() * 2);\n'
+        '                fixedAnchors.reserve(hardAnchors.size() * 2);\n'
+        '\n'
+        '                fixedPoints.push_back(interpolatedPoints[0]);\n'
+        '                fixedRadii.push_back(interpolatedRadii[0]);\n'
+        '                fixedAnchors.push_back(hardAnchors[0]);\n'
+        '\n'
+        '                int insertedTotal = 0;\n'
+        '\n'
+        '                for (std::size_t i = 0; i + 1 < interpolatedPoints.size(); ++i) {\n'
+        '                    const vec3& a = interpolatedPoints[i];\n'
+        '                    const vec3& b = interpolatedPoints[i + 1];\n'
+        '                    double ra = interpolatedRadii[i];\n'
+        '                    double rb = interpolatedRadii[i + 1];\n'
+        '\n'
+        '                    double dx = b.x - a.x;\n'
+        '                    double dy = b.y - a.y;\n'
+        '                    double dz = b.z - a.z;\n'
+        '                    double len = std::sqrt(dx*dx + dy*dy + dz*dz);\n'
+        '\n'
+        '                    int pieces = 1;\n'
+        '                    if (len > GAP_FACTOR * targetSpacing) {\n'
+        '                        pieces = static_cast<int>(std::ceil(len / targetSpacing));\n'
+        '                        if (pieces < 1)\n'
+        '                            pieces = 1;\n'
+        '                        if (pieces > MAX_INSERT_PER_GAP)\n'
+        '                            pieces = MAX_INSERT_PER_GAP;\n'
+        '                    }\n'
+        '\n'
+        '                    for (int s = 1; s <= pieces; ++s) {\n'
+        '                        double t = static_cast<double>(s) / static_cast<double>(pieces);\n'
+        '                        float tf = static_cast<float>(t);\n'
+        '                        vec3 p = a * static_cast<float>(1.0 - t) + b * tf;\n'
+        '                        double rr = ra * (1.0 - t) + rb * t;\n'
+        '\n'
+        '                        fixedPoints.push_back(p);\n'
+        '                        fixedRadii.push_back(rr);\n'
+        '\n'
+        '                        if (s == pieces)\n'
+        '                            fixedAnchors.push_back(hardAnchors[i + 1]);\n'
+        '                        else\n'
+        '                            fixedAnchors.push_back(0);\n'
+        '                    }\n'
+        '\n'
+        '                    insertedTotal += (pieces - 1);\n'
+        '                }\n'
+        '\n'
+        '                interpolatedPoints.swap(fixedPoints);\n'
+        '                interpolatedRadii.swap(fixedRadii);\n'
+        '                hardAnchors.swap(fixedAnchors);\n'
+        '\n'
+        '                if (!quiet_ && insertedTotal > 0)\n'
+        '                    std::cout << "Patch 4: inserted " << insertedTotal << " straight gap points" << std::endl;\n'
+        '            }\n'
+        '        }\n'
+        '\n'
+        '\t\tif (interpolatedPoints.size() < 2)\n'
+        '\t\t\tcontinue; // Too few points to construct a cylinder\n'
+    )
+    assert old in content, 'ERROR: shortcut gap filling anchor not found'
+    content = content.replace(old, new, 1)
+    print('Patch 4: direct shortcut gap filling applied')
+
+
+    # Patch 5 - Skeleton Extraction: lower trunk straightening
+
+    old = (
+        '\t\tif (interpolatedPoints.size() < 2)\n'
+        '\t\t\tcontinue; // Too few points to construct a cylinder\n'
+    )
+    new = (
+        '        // Patch 5: lower trunk straightening\n'
+        '        if (n_path == 0 && interpolatedPoints.size() >= 6) {\n'
+        '            const double BASE_STRAIGHT_PERCENT = 0.05;\n'
+        '            const int REF_COUNT = 8;\n'
+        '            double zCut = RootPos_.z + BASE_STRAIGHT_PERCENT * TreeHeight_;\n'
+        '\n'
+        '            int idxAttach = -1;\n'
+        '            for (int i = 0; i < (int)interpolatedPoints.size(); ++i) {\n'
+        '                if (interpolatedPoints[i].z >= zCut) {\n'
+        '                    idxAttach = i;\n'
+        '                    break;\n'
+        '                }\n'
+        '            }\n'
+        '\n'
+        '            if (idxAttach > 0 && idxAttach + 1 < (int)interpolatedPoints.size()) {\n'
+        '                const vec3 anchor = interpolatedPoints[idxAttach];\n'
+        '                double numX = 0.0, numY = 0.0, den = 0.0;\n'
+        '                int used = 0;\n'
+        '\n'
+        '                for (int j = idxAttach + 1; j < (int)interpolatedPoints.size() && used < REF_COUNT; ++j) {\n'
+        '                    const vec3& q = interpolatedPoints[j];\n'
+        '                    double dz = q.z - anchor.z;\n'
+        '                    if (std::abs(dz) < 1e-10)\n'
+        '                        continue;\n'
+        '\n'
+        '                    numX += dz * (q.x - anchor.x);\n'
+        '                    numY += dz * (q.y - anchor.y);\n'
+        '                    den  += dz * dz;\n'
+        '                    ++used;\n'
+        '                }\n'
+        '\n'
+        '                if (den > 1e-12 && used >= 1) {\n'
+        '                    double slopeX = numX / den;\n'
+        '                    double slopeY = numY / den;\n'
+        '\n'
+        '                    for (int i = 0; i < idxAttach; ++i) {\n'
+        '                        vec3& p = interpolatedPoints[i];\n'
+        '                        if (p.z < zCut) {\n'
+        '                            double dz = p.z - anchor.z;\n'
+        '                            p.x = static_cast<float>(anchor.x + slopeX * dz);\n'
+        '                            p.y = static_cast<float>(anchor.y + slopeY * dz);\n'
+        '                        }\n'
+        '                    }\n'
+        '                }\n'
+        '            }\n'
+        '        }\n'
+        '\n'
+        '\t\tif (interpolatedPoints.size() < 2)\n'
+        '\t\t\tcontinue; // Too few points to construct a cylinder\n'
+    )
+    assert old in content, 'ERROR: lower trunk straightening anchor not found'
+    content = content.replace(old, new, 1)
+    print('Patch 5: lower 5% main skeleton straightened without offset')
+
+
+    # Patch 6 - Wood-Mesh Reconstruction: final trunk radius calibration
+
+    old = (
+        '    if (!quiet_)\n'
+        '        std::cout << "step 3: adjust the radius for all left branches" << std::endl;\n'
+        '    compute_all_edges_radius(TrunkRadius_);\n'
+    )
+    new = (
+        '    if (!quiet_)\n'
+        '        std::cout << "step 3: adjust the radius for all left branches" << std::endl;\n'
+        '    // Patch 6: final trunk radius calibration\n'
+        '    {\n'
+        '        double zBase = RootPos_.z + 0.02 * TreeHeight_;\n'
+        '        double sx = 0.0, sy = 0.0; long cnt = 0;\n'
+        '        std::pair<SGraphEdgeIterator, SGraphEdgeIterator> ep0 = edges(simplified_skeleton_);\n'
+        '        for (SGraphEdgeIterator it = ep0.first; it != ep0.second; ++it) {\n'
+        '            const std::vector<int>& vp = simplified_skeleton_[*it].vecPoints;\n'
+        '            for (size_t k = 0; k < vp.size(); ++k) {\n'
+        '                const Vector3D& p = Points_[vp[k]];\n'
+        '                if (p.z <= zBase) { sx += p.x; sy += p.y; ++cnt; }\n'
+        '            }\n'
+        '        }\n'
+        '        if (cnt >= 10) {\n'
+        '            double cX = sx / cnt, cY = sy / cnt;\n'
+        '            std::vector<double> rr; rr.reserve(cnt);\n'
+        '            for (SGraphEdgeIterator it = ep0.first; it != ep0.second; ++it) {\n'
+        '                const std::vector<int>& vp = simplified_skeleton_[*it].vecPoints;\n'
+        '                for (size_t k = 0; k < vp.size(); ++k) {\n'
+        '                    const Vector3D& p = Points_[vp[k]];\n'
+        '                    if (p.z <= zBase) { double dx=p.x-cX, dy=p.y-cY; rr.push_back(std::sqrt(dx*dx+dy*dy)); }\n'
+        '                }\n'
+        '            }\n'
+        '            std::sort(rr.begin(), rr.end());\n'
+        '            TrunkRadius_ = rr[rr.size()/2];\n'
+        '        }\n'
+        '    }\n'
+        '    compute_all_edges_radius(TrunkRadius_);\n'
+    )
+    assert old in content, 'ERROR: step-3 radius anchor not found'
+    content = content.replace(old, new, 1)
+    print('Patch 6: self-calibrating final trunk radius applied')
+
+
+    # Patch 7 - Leaf Generation: leaf density and size reduction
+
+    content = content.replace(
+        'int density = ceil(random_float() * 10);',
+        'int density = ceil(random_float() * 1);'
+    )
+    content = content.replace(
+        'generate_leaves(currentLeafVertex, 0.05);',
+        'generate_leaves(currentLeafVertex, 0.02);'
+    )
+    content = content.replace(
+        'double radius = 0.2 / log((float)num_edges(simplified_skeleton_));',
+        'double radius = 0.04 / log((float)num_edges(simplified_skeleton_));'
+    )
+    print('Patch 7: leaf density reduced')
+
+
+    # Patch 8 - Leaf Generation: leaf base attached to branch tip
+
+    old_generate = (
+        'void Skeleton::generate_leaves(SGraphVertexDescriptor i_LeafVertex, double leafsize_Factor)\n'
+        '{\n'
+        '\t//generate a random density number\n'
+        '    int density = ceil(random_float() * 1);\n'
+        '    double radius = 0.04 / log((float)num_edges(simplified_skeleton_));\n'
+        '\t//get the position of the current leaf vertex and its parent\n'
+        '    vec3 pCurrent = simplified_skeleton_[i_LeafVertex].cVert;\n'
+        '    SGraphVertexDescriptor i_LeafParent = simplified_skeleton_[i_LeafVertex].nParent;\n'
+        '    vec3 pParent = simplified_skeleton_[i_LeafParent].cVert;\n'
+        '\t//get the end position where the leaf should grow\n'
+        '    vec3 pEnd = pCurrent - (random_float() / 2.0) * ((pCurrent - pParent).normalize());\n'
+        '\n'
+        '\t//generate i-th random leaf\n'
+        '\tfor (int i = 0; i < density; ++i)\n'
+        '\t{\n'
+        '\t\t//generate a random leaf position\n'
+        '        vec3 dirLeaf((random_float() - 0.5) / 0.5, (random_float() - 0.5) / 0.5, (random_float() - 0.5) / 0.5);\n'
+        '\t\tdirLeaf = dirLeaf.normalize();\n'
+        '        double l = random_float() * radius;\n'
+        '\t\tvec3 pLeaf = pEnd + dirLeaf * l;\n'
+        '\t\t//generate normal and color vector\n'
+        '\t\tvec3 dirParent2Leaf = (pLeaf - pParent).normalize();\n'
+        '\t\tvec3 normal = (cross(dirParent2Leaf, dirLeaf)).normalize();\n'
+        '\t\t//generate a new leaf\n'
+        '\t\tLeaf newleaf;\n'
+        '\t\tnewleaf.cPos = pLeaf;\n'
+        '\t\tnewleaf.cDir = dirLeaf;\n'
+        '\t\t//generate a random normal vector direction\n'
+        '        vec3 delta((random_float() - 0.5) / 0.5, (random_float() - 0.5) / 0.5, (random_float() - 0.5) / 0.5);\n'
+        '        newleaf.cNormal = (normal + random_float()*delta*0.5).normalize();\n'
+        '\t\tnewleaf.pSource = i_LeafVertex;\n'
+        '\t\tnewleaf.nLength = BoundingDistance_ * leafsize_Factor;\n'
+        '\t\tnewleaf.nRad = newleaf.nLength / 5;\n'
+        '\t\tVecLeaves_.push_back(newleaf);\n'
+        '\t}\n'
+        '\n'
+        '\treturn;\n'
+        '}'
+    )
+    new_generate = (
+        'void Skeleton::generate_leaves(SGraphVertexDescriptor i_LeafVertex, double leafsize_Factor)\n'
+        '{\n'
+        '\t//generate a random density number\n'
+        '    int density = ceil(random_float() * 1);\n'
+        '    double radius = 0.04 / log((float)num_edges(simplified_skeleton_));\n'
+        '\t//get the position of the current leaf vertex and its parent\n'
+        '    vec3 pCurrent = simplified_skeleton_[i_LeafVertex].cVert;\n'
+        '    SGraphVertexDescriptor i_LeafParent = simplified_skeleton_[i_LeafVertex].nParent;\n'
+        '    vec3 pParent = simplified_skeleton_[i_LeafParent].cVert;\n'
+        '\t// branch growth direction\n'
+        '    vec3 branchDir = (pCurrent - pParent).normalize();\n'
+        '\n'
+        '\t//generate i-th random leaf\n'
+        '\tfor (int i = 0; i < density; ++i)\n'
+        '\t{\n'
+        '\t\t// leaf base directly at branch tip\n'
+        '        double offset = random_float() * radius * 0.5;\n'
+        '        vec3 pLeaf = pCurrent - branchDir * offset;\n'
+        '\n'
+        '\t\t// leaf direction: perpendicular away from branch\n'
+        '        vec3 randPerp((random_float()-0.5)/0.5, (random_float()-0.5)/0.5, (random_float()-0.5)/0.5);\n'
+        '        randPerp = randPerp.normalize();\n'
+        '        randPerp = (randPerp - branchDir * dot(randPerp, branchDir)).normalize();\n'
+        '        vec3 dirLeaf = (randPerp * 0.6f + branchDir * 0.4f).normalize();\n'
+        '\n'
+        '\t\t//generate normal and color vector\n'
+        '\t\tvec3 dirParent2Leaf = (pLeaf - pParent).normalize();\n'
+        '\t\tvec3 normal = (cross(dirParent2Leaf, dirLeaf)).normalize();\n'
+        '\t\t//generate a new leaf\n'
+        '\t\tLeaf newleaf;\n'
+        '\t\tnewleaf.cPos = pLeaf;\n'
+        '\t\tnewleaf.cDir = dirLeaf;\n'
+        '\t\t//generate a random normal vector direction\n'
+        '        vec3 delta((random_float()-0.5)/0.5, (random_float()-0.5)/0.5, (random_float()-0.5)/0.5);\n'
+        '        newleaf.cNormal = (normal + random_float()*delta*0.5).normalize();\n'
+        '\t\tnewleaf.pSource = i_LeafVertex;\n'
+        '\t\tnewleaf.nLength = BoundingDistance_ * leafsize_Factor;\n'
+        '\t\tnewleaf.nRad = newleaf.nLength / 5;\n'
+        '\t\tVecLeaves_.push_back(newleaf);\n'
+        '\t}\n'
+        '\n'
+        '\treturn;\n'
+        '}'
+    )
+    assert old_generate in content, 'ERROR: generate_leaves not found!'
+    content = content.replace(old_generate, new_generate, 1)
+    print('Patch 8: leaf base attached to branch tip')
+
+
+    # Patch 9 - Leaf Generation: elliptic leaf shape
+
+    old_func = (
+        'bool Skeleton::reconstruct_leaves(SurfaceMesh *mesh) {\n'
+        '    if (!add_leaves())\n'
+        '        return false;\n'
+        '\n'
+        '    if (VecLeaves_.empty())\n'
+        '        return false;\n'
+        '\n'
+        '    for (std::size_t i = 0; i < VecLeaves_.size(); i++) {\n'
+        '        const Leaf& iLeaf = VecLeaves_[i];\n'
+        '        //compute the center and major axis, minor axis of the leaf quad\n'
+        '        vec3 pCenter((iLeaf.cPos + (0.5 * iLeaf.cDir * iLeaf.nRad)));\n'
+        '        vec3 dirMajor(0.5 * iLeaf.cDir * iLeaf.nLength);\n'
+        '        vec3 dirMinor(0.5 * cross(iLeaf.cDir, iLeaf.cNormal)*iLeaf.nRad);\n'
+        '        //compute the corner coordinates\n'
+        '        const vec3 a = pCenter - dirMajor - dirMinor;\n'
+        '        const vec3 b = pCenter + dirMajor - dirMinor;\n'
+        '        const vec3 c = pCenter + dirMajor + dirMinor;\n'
+        '        const vec3 d = pCenter - dirMajor + dirMinor;\n'
+        '        SurfaceMesh::Vertex va = mesh->add_vertex(a);\n'
+        '        SurfaceMesh::Vertex vb = mesh->add_vertex(b);\n'
+        '        SurfaceMesh::Vertex vc = mesh->add_vertex(c);\n'
+        '        SurfaceMesh::Vertex vd = mesh->add_vertex(d);\n'
+        '        mesh->add_triangle(va, vb, vc);\n'
+        '        mesh->add_triangle(va, vc, vd);\n'
+        '    }\n'
+        '\n'
+        '    return true;\n'
+        '}'
+    )
+    new_func = (
+        'bool Skeleton::reconstruct_leaves(SurfaceMesh *mesh) {\n'
+        '    if (!add_leaves())\n'
+        '        return false;\n'
+        '\n'
+        '    if (VecLeaves_.empty())\n'
+        '        return false;\n'
+        '\n'
+        '    const int nSegs = 6;\n'
+        '    for (std::size_t i = 0; i < VecLeaves_.size(); i++) {\n'
+        '        const Leaf& iLeaf = VecLeaves_[i];\n'
+        '        vec3 dir = iLeaf.cDir; vec3 norm = iLeaf.cNormal;\n'
+        '        vec3 axisL = dir.normalize() * iLeaf.nLength;\n'
+        '        vec3 axisW = cross(dir, norm).normalize() * iLeaf.nRad;\n'
+        '        vec3 pBase = iLeaf.cPos;\n'
+        '        std::vector<SurfaceMesh::Vertex> leftVerts, rightVerts;\n'
+        '        for (int s = 0; s <= nSegs; ++s) {\n'
+        '            double t = (double)s / nSegs;\n'
+        '            double width = sin(M_PI * t) * (2.0 - 0.3 * t);\n'
+        '            vec3 pAlong = pBase + axisL * t;\n'
+        '            leftVerts.push_back(mesh->add_vertex(pAlong - axisW * width * 0.5));\n'
+        '            rightVerts.push_back(mesh->add_vertex(pAlong + axisW * width * 0.5));\n'
+        '        }\n'
+        '        for (int s = 0; s < nSegs; ++s) {\n'
+        '            mesh->add_triangle(leftVerts[s],   rightVerts[s],   rightVerts[s+1]);\n'
+        '            mesh->add_triangle(leftVerts[s],   rightVerts[s+1], leftVerts[s+1]);\n'
+        '        }\n'
+        '    }\n'
+        '    return true;\n'
+        '}'
+    )
+    assert old_func in content, 'ERROR: reconstruct_leaves not found!'
+    content = content.replace(old_func, new_func, 1)
+    print('Patch 9: elliptic leaf shape applied')
+
     with open(skel, 'w') as f:
         f.write(content)
-    print('  All patches applied')
+    print('All patches applied successfully')
 
 
 def build_adtree():
