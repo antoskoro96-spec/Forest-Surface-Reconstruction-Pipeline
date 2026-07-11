@@ -130,7 +130,7 @@ if (distance >= mergeThreshold * r)
 * **Radius smoothing:** 8 smoothing passes along the path, while preserving hard anchors.
 * **Tip handling:** closed tips are temporarily protected during radius smoothing and then restored to a zero radius.
 * **Monotonic radius cleanup:** branch radii are constrained to not increase toward the tip.
-* **Straight-gap filling:** additional points are inserted where the spacing between consecutive centerline samples exceeds `1.4 ×` the typical spacing.
+* **Straight-gap filling:** additional points are inserted where the spacing between consecutive centerline samples exceeds the typical spacing.
 
 Hard anchors remain fixed throughout this cleanup, so roots, branch junctions, and tips are preserved.
 
