@@ -213,8 +213,6 @@ vec3 dirLeaf = (randPerp * 0.6f + branchDir * 0.4f).normalize();
 
 **Why:** Leaves should visually grow from branch tips rather than float around them. This patch anchors the leaf base closer to the terminal branch and gives the leaf a more consistent orientation relative to the branch direction.
 
-**Implementation note:** The perpendicular random direction should be normalized safely. If the random vector is nearly parallel to the branch direction, a fallback perpendicular vector should be used before normalization.
-
 ---
 
 #### Patch 9 — Elliptic leaf shape
