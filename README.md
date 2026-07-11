@@ -86,7 +86,7 @@ This estimate can become too large when the selected lower region contains outli
 
 **After:** The bounding-box estimate is replaced by a 2D Gauss-Newton least-squares circle fit. The fit estimates a circle center and radius from the selected lower trunk points. The resulting radius is used as the initial `TrunkRadius_` for the following skeleton centralization step. If too few trunk points are available, the original bounding-box estimate remains the fallback.
 
-**Why:** The initial trunk radius controls the neighborhood size used during main-branch point centralization. A more stable initial radius can improve the extracted skeleton by reducing under- or over-centralization. The fitted circle center is only used internally for estimating the radius; the skeleton later uses the radius value, not the fitted center. The final mesh radius is recalibrated separately in Patch 6.
+**Why:** The initial trunk radius controls the neighborhood size used during main-branch point centralization. A more stable initial radius can improve the extracted skeleton by reducing under- or over-centralization. The final mesh radius is recalibrated separately in Patch 6.
 
 ---
 
