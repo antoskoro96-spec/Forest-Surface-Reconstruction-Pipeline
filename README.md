@@ -158,10 +158,6 @@ Hard anchors remain fixed throughout this cleanup, so roots, branch junctions, a
 
 **Before:** The current `TrunkRadius_` was passed directly to `compute_all_edges_radius(TrunkRadius_)`, which propagates the trunk radius to the remaining branches. If this value was too large, the entire wood mesh became too thick.
 
-```cpp
-compute_all_edges_radius(TrunkRadius_);
-```
-
 **After:** Just before branch-radius propagation, `TrunkRadius_` is recalibrated from the reconstructed tree structure. The code iterates over all edges of the simplified skeleton, collects the original input points assigned to these edges through `vecPoints`, and keeps only those located in the lowest 2% of the tree height. These filtered lower points are projected onto the XY plane. Their centroid is computed, and the final trunk radius is set to the median radial distance from the centroid.
 
 **Why:** This separates the radius used for early skeleton centralization from the radius used for final wood-mesh thickness. Patch 2 provides an initial radius for skeleton extraction, while Patch 6 recalibrates the final radius directly before it is propagated to the branch radii. Using points assigned to the simplified skeleton provides a filtered point set and makes the final radius less sensitive to raw point-cloud outliers.
