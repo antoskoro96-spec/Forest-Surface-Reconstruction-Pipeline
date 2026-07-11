@@ -35,7 +35,7 @@ The outputs are merged back into a complete forest and packaged as a ZIP.
 
 
 
-| <img src="https://github.com/user-attachments/assets/7ae4b63a-79d4-4911-bf63-38eb9e514418" alt="Point Cloud" width="220"> | <img src="https://github.com/user-attachments/assets/224744a4-bc23-4c1a-9ae1-b65299907390" alt="Tree instance segmentation" width="220"> | <img src="https://github.com/user-attachments/assets/9c7799b4-d01d-442f-9091-ba6f644e164b" alt="AdTree wood mesh" width="220"> | <img src="https://github.com/user-attachments/assets/87c7a51c-75fd-4d2d-b651-209fbd101188" alt="AdTree leaf mesh" width="220"> |
+| <img src="https://github.com/user-attachments/assets/7ae4b63a-79d4-4911-bf63-38eb9e514418" alt="Point Cloud" width="220" height="570"> | <img src="https://github.com/user-attachments/assets/224744a4-bc23-4c1a-9ae1-b65299907390" alt="Tree instance segmentation" width="220" height="570"> | <img src="https://github.com/user-attachments/assets/9c7799b4-d01d-442f-9091-ba6f644e164b" alt="AdTree wood mesh" width="220" height="570"> | <img src="https://github.com/user-attachments/assets/87c7a51c-75fd-4d2d-b651-209fbd101188" alt="AdTree leaf mesh" width="220" height="570"> |
 | :---: | :---: | :---: | :---: |
 | Point Cloud | Tree instance segmentation | AdTree wood mesh | AdTree leaf mesh |
 
