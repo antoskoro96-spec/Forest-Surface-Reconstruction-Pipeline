@@ -116,7 +116,7 @@ if (distance >= mergeThreshold * r)
     return false;
 ```
 
-**Why:** The uniform simplification could oversimplify the main stem and main branches. The adaptive rule preserves curvature in structurally important regions while still removing redundant detail in terminal crown branches, as described in Section III-A of the paper.
+**Why:** The uniform simplification could oversimplify the main stem and main branches. The adaptive rule preserves curvature in structurally important regions while still removing redundant detail in terminal crown branches.
 
 ---
 
